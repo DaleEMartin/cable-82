@@ -21,7 +21,7 @@ Features:
 - **The control room** at `/config` - everything, one page, one Save. The set picks the change up at once.
 - **Switches off like a tube** - the picture folds into a bright line, snaps to a dot, and the phosphor fades. On, it blooms back open.
 - **Made for CRTs** - 4:3 composition, per-axis overscan margins, a broadcast-safe palette, and a softer one for composite and RF.
-- **Faux CRT for flat panels** - the picture plays inside a drawn wood console that fills the screen, its channel dial turning on every tune, with the tells of a tube as settings: curve, scanlines, noise, wave, bloom, vignette.
+- **Faux CRT for flat panels** - the picture plays inside a drawn wood console that fills the screen, its channel dial turning on every tune, with the tells of a tube as settings: curve, scanlines, noise, wave, bloom, vignette, flicker.
 
 Resources:
 
@@ -73,7 +73,7 @@ Open `http://localhost:1982/config` and the whole network is on one screen, in s
 2. **Channels** - the dial and its schedules, and how the dial is turned.
 3. **Community Board** - the rest of channel 82: the page rotation, colors, facts and jokes, weather, feeds, the crawl, CheerLights.
 4. **Channel Preview** - channel 0: the guide's name and tagline, the grid, and its color.
-5. **Display** - the set: CRT mode, text size, overscan, clock format, and the daily reload that keeps a kiosk healthy.
+5. **Display** - the set: CRT mode, text size, overscan, faux CRT for a flat panel, clock format, and the daily reload that keeps a kiosk healthy.
 6. **Server** - the machine's vitals, the port, restart and shut down on a Pi, and the release you are running.
 
 The bar under the masthead jumps between the groups and follows you as you scroll; `#quick`, `#channels`, `#board`, `#preview`, `#display`, and `#server` are links you can bookmark.
@@ -391,17 +391,18 @@ Open the **Picture** panel, under Display, in the control room:
 - **Overscan margins**, one per axis: tubes rarely crop evenly, so give the sides and the top/bottom each what your set eats.
 
 Pages fit themselves to whatever is left: a long fact or the weather card shrinks a little, and only if that is not enough does the weather card give up its sunrise line and shrink further.
-There are no fake scanline filters for a tube in CABLE 82: the CRT is the filter.
+There are no fake scanline filters for a tube in CABLE 82: the CRT is the filter. A flat panel is the other story, below.
 
 ### On a flat panel: faux CRT
 
 A flat panel has no filter, so the set can draw one.
-Turn on **Faux CRT** in the control room's Faux CRT panel, under Display, and the 4:3 picture plays inside a drawn 1970s wood console that fills the screen edge to edge, so the television's own frame is the console's frame.
+Open the **Faux CRT** panel, under Display, in the control room, and turn it on.
+The 4:3 picture plays inside a drawn 1970s wood console that fills the screen, so the television's own frame is the console's frame.
 The console's channel dial is live: it carries the lineup's numbers, its pointer turns on every tune, and a click on a number tunes.
 The tells of a tube are sliders, 0 to 10, each off at 0: **Curve** (the bulge of the glass; the picture and the glass bend together, cut where the picture ends), **Scanlines**, **Noise**, **Wave** (a slow weak-signal wobble), **Bloom**, **Vignette**, and **Flicker**, plus a phosphor mask and a reflection for the people who miss them.
 Curve, wave, and bloom run as one filter on the picture and cost a full-screen pass per frame; the rest are free.
 A Raspberry Pi 3 feeding a flat panel is happiest with those three at 0 and the others where you like them.
-Faux CRT is ignored while CRT mode is on, and says so when you save: a real tube needs none of it.
+Faux CRT is turned off when you save with CRT mode on, and the control room says so: a real tube needs none of it.
 
 ## Updating
 
@@ -522,6 +523,7 @@ No build step, no dependencies: the files are what the browser runs.
 | `board.js` | Channel 82: the header, the pages, the crawl, the feeds, the weather card, CheerLights, the music bed, and its own watchdog |
 | `guide.js` | Channel 0: the CABLEVUE masthead and grid, crawling when the lineup is tall |
 | `video.js` | The player: two buffers, the cut at a boundary, the end-of-program watch, the duration probe |
+| `set.js` | Faux CRT: the drawn console and its live dial, the glass cut to the picture's own curve, the tube's tells as one filter and a few overlays. Nothing runs on a real tube |
 | `tuner.js` | The dial: channel changes and what covers them, the on-screen display, the off-air cards, the volume and power keys, the keyboard and gamepad, and one `command()` every source lands on |
 | `app.js` | Boot: load the config, paint the stage, start the tuner, listen to the bus, reload daily |
 | `index.html`, `style.css` | The set. Everything is sized off a virtual 640x480 screen so it scales to any tube |
@@ -534,7 +536,7 @@ No build step, no dependencies: the files are what the browser runs.
 
 - `node --test test/server.test.mjs test/dial.test.mjs` runs the two Node suites: the server (static serving and traversal, the feed proxy, the config API and its guards, a broken config told rather than hidden, weather and geocoding, the channels inventory across drives, durations, titles read from inside files, the tuner bus, the vitals, version, and power endpoints, the command line) and the broadcast clock (positions, schedules with overnight windows, the timeline with breaks, the guide grid and what it names, the dial, the volume cycle).
 - Browser helpers: start the server and open `http://localhost:1982/test/harness.html` for the same dial math in a browser plus the DOM-bound helpers (feed parsing, sanitizing, the crawl text, the clock faces).
-- End to end: `node test/e2e.mjs` puts the real display in a headless Chromium on a throwaway config and drives it the way a living room does: signs on to the board, tunes the guide, plays a video channel through a file boundary, lands on a test card, presses volume and power, turns the dial from the keyboard, saves from the control room and watches the set reload itself, asks the remote how many sets are listening, and breaks `config.json` to see the set say so. It needs Playwright (not a dependency of the station: `npm i playwright && npx playwright install chromium` in a scratch folder, then run with `NODE_PATH=<that>/node_modules`) and ffmpeg for its two test clips (`FFMPEG=<path>` if it is not on the PATH). Without Playwright it says so and exits clean.
+- End to end: `node test/e2e.mjs` puts the real display in a headless Chromium on a throwaway config and drives it the way a living room does: signs on to the board, tunes the guide, plays a video channel through a file boundary, lands on a test card, presses volume and power, turns the dial from the keyboard, saves from the control room and watches the set reload itself, asks the remote how many sets are listening, turns faux CRT on and checks the console, the glass, the dial, and the switch-off, and breaks `config.json` to see the set say so. It needs Playwright (not a dependency of the station: `npm i playwright && npx playwright install chromium` in a scratch folder, then run with `NODE_PATH=<that>/node_modules`) and ffmpeg for its two test clips (`FFMPEG=<path>` if it is not on the PATH). Without Playwright it says so and exits clean.
 - Tuner drill by hand: with more than one channel on the dial, `curl -X POST http://localhost:1982/api/tune -H "content-type: application/json" -d "{\"cmd\":\"up\"}"` and watch the display change channels - the whole bus in one command.
 - Failure drill: `node server.js --chaos` serves mock feeds that randomly hang and fail, so you can watch the Community Board shrug it off.
 - Soak: open `http://localhost:1982/?soak=1` for accelerated channel-82 page flips and refreshes with stats logged to the console.

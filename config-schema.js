@@ -562,7 +562,7 @@
     out.reflection = r.reflection === true;
     if (out.on && crtMode) {
       out.on = false;
-      errors.push("FAUX CRT TURNED OFF: CRT MODE IS ON, AND ON A TUBE THE TUBE IS THE FILTER");
+      errors.push("FAUX CRT TURNED OFF: CRT MODE IS ON");
     }
     return out;
   }

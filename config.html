@@ -776,21 +776,21 @@
       </section>
       <section class="panel" id="p-faux">
         <h3>Faux CRT</h3>
-        <p class="hint">For a flat panel. The picture plays inside a drawn wood console that fills the screen, and the tells of a tube are yours to set. Ignored while CRT mode is on: a real tube needs none of this.</p>
+        <p class="hint">For a flat panel. The picture plays inside a drawn wood console that fills the screen, and the tells of a tube are the sliders below. Turned off on save while CRT mode is on.</p>
         <div class="grid">
           <div class="field">
             <label>Set</label>
-            <div class="toggle"><input type="checkbox" id="f-fauxOn"><label for="f-fauxOn">Faux CRT: the console around the picture</label></div>
+            <div class="toggle"><input type="checkbox" id="f-fauxOn"><label for="f-fauxOn">Faux CRT</label></div>
             <select id="f-fauxSet">
               <option value="console">Wood console with a channel dial</option>
-              <option value="none">Glass only, no cabinet</option>
+              <option value="none">Glass only</option>
             </select>
-            <span class="note">The dial shows the channel and turns on every tune. A click on a number tunes.</span>
+            <span class="note">The dial shows the channel, turns on every tune, and tunes when you click a number.</span>
           </div>
           <div class="field">
             <label for="f-fauxCurve">Curve</label>
             <div class="range-row"><input type="range" id="f-fauxCurve" min="0" max="10" step="1"><output id="o-fauxCurve">3</output></div>
-            <span class="note">The bulge of the glass. The picture and the glass bend together; 0 is flat.</span>
+            <span class="note">The bulge of the glass, picture included; 0 is flat.</span>
           </div>
           <div class="field">
             <label for="f-fauxScanlines">Scanlines</label>
@@ -810,7 +810,7 @@
           <div class="field">
             <label for="f-fauxBloom">Bloom</label>
             <div class="range-row"><input type="range" id="f-fauxBloom" min="0" max="10" step="1"><output id="o-fauxBloom">2</output></div>
-            <span class="note">Bright areas bleed a touch into their neighbors.</span>
+            <span class="note">Bright areas bleed into their neighbors.</span>
           </div>
           <div class="field">
             <label for="f-fauxVignette">Vignette</label>
@@ -820,14 +820,14 @@
           <div class="field">
             <label for="f-fauxFlicker">Flicker</label>
             <div class="range-row"><input type="range" id="f-fauxFlicker" min="0" max="10" step="1"><output id="o-fauxFlicker">0</output></div>
-            <span class="note">A slight breathe of brightness. Off unless you miss it; it tires eyes.</span>
+            <span class="note">A slight breathing of the brightness; it tires eyes.</span>
           </div>
           <div class="field">
             <label>Extras</label>
             <div class="toggle"><input type="checkbox" id="f-fauxMask"><label for="f-fauxMask">Phosphor mask</label></div>
-            <span class="note">A faint RGB triad. Worth it on a large panel, invisible on a small one.</span>
+            <span class="note">A faint RGB triad, visible on a large panel and lost on a small one.</span>
             <div class="toggle"><input type="checkbox" id="f-fauxReflection"><label for="f-fauxReflection">Reflection</label></div>
-            <span class="note">A soft highlight on the glass, the room's lamp.</span>
+            <span class="note">A soft highlight on the glass.</span>
           </div>
         </div>
       </section>
