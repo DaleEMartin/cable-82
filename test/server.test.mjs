@@ -880,6 +880,28 @@ test("GET /api/config synthesizes the out-of-the-box dial for a legacy config", 
   assert.equal(j.config.tuner.cut, "static");
 });
 
+test("schema fills, clamps, and guards the faux CRT block", () => {
+  const { validateConfig, DEFAULT_CONFIG } = require("../config-schema.js");
+  const fresh = validateConfig({}).cfg;
+  assert.deepEqual(fresh.fauxCrt, DEFAULT_CONFIG.fauxCrt, "defaults, off");
+  assert.equal(fresh.fauxCrt.on, false);
+  const wild = validateConfig({ fauxCrt: { on: true, set: "spaceship", curve: 99, noise: -3, wave: "7", flicker: 2.6, mask: "yes", reflection: true } });
+  assert.equal(wild.cfg.fauxCrt.on, true);
+  assert.equal(wild.cfg.fauxCrt.set, "console", "an unknown set falls back");
+  assert.equal(wild.cfg.fauxCrt.curve, 10, "clamped high");
+  assert.equal(wild.cfg.fauxCrt.noise, 0, "clamped low");
+  assert.equal(wild.cfg.fauxCrt.wave, 7, "a numeric string counts");
+  assert.equal(wild.cfg.fauxCrt.flicker, 3, "rounded to a whole step");
+  assert.equal(wild.cfg.fauxCrt.mask, false, "only a real boolean turns a toggle on");
+  assert.equal(wild.cfg.fauxCrt.reflection, true);
+  assert.equal(wild.errors.length, 0);
+  const tube = validateConfig({ crtMode: true, fauxCrt: { on: true } });
+  assert.equal(tube.ok, true);
+  assert.equal(tube.cfg.fauxCrt.on, false, "CRT mode wins");
+  assert.ok(tube.errors.some((e) => /FAUX CRT TURNED OFF/.test(e)), "and says so");
+  assert.equal(tube.cfg.fauxCrt.curve, 3, "the sliders keep their values for when the tube goes away");
+});
+
 test("schema keeps overscan per axis and reads a legacy overscanPercent into both", () => {
   const { validateConfig } = require("../config-schema.js");
   const fresh = validateConfig({}).cfg;
@@ -899,7 +921,7 @@ test("schema writes exactly the keys the README documents, nothing vestigial", (
   const cfg = validateConfig(DEFAULT_CONFIG).cfg;
   assert.deepEqual(Object.keys(cfg).sort(), [
     "channelName", "channels", "cheerlights", "colors", "crawl", "crtInkText", "crtMode", "dadJokes",
-    "dailyReloadHour", "facts", "feeds", "maxItemsPerFeed", "messages", "music", "overscanX", "overscanY",
+    "dailyReloadHour", "facts", "fauxCrt", "feeds", "maxItemsPerFeed", "messages", "music", "overscanX", "overscanY",
     "pageSeconds", "port", "preview", "refreshMinutes", "rotation", "tagline", "textScale", "timeFormat",
     "tuner", "weather",
   ]);

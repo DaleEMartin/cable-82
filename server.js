@@ -48,7 +48,7 @@ const ROOT = __dirname;
 // files by itself. Nobody has to touch the TV.
 const DISPLAY_FILES = [
   "index.html", "style.css", "config-schema.js",
-  "dial.js", "board.js", "guide.js", "video.js", "tuner.js", "app.js",
+  "dial.js", "board.js", "guide.js", "video.js", "set.js", "tuner.js", "app.js",
 ];
 function displayBuild() {
   const h = crypto.createHash("sha1");

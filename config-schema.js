@@ -271,6 +271,23 @@
     crtMode: false,
     crtInkText: false,
     textScale: 1,
+    // Faux CRT: the flat-panel path. The picture plays inside a drawn wood
+    // console that fills the screen, and the tells of a tube are sliders,
+    // 0 to 10. Off by default, and off whenever crtMode is on: a real tube
+    // needs none of it.
+    fauxCrt: {
+      on: false,
+      set: "console",
+      curve: 3,
+      scanlines: 4,
+      noise: 2,
+      wave: 1,
+      bloom: 2,
+      vignette: 3,
+      flicker: 0,
+      mask: false,
+      reflection: false,
+    },
     dailyReloadHour: 4,
   };
 
@@ -529,6 +546,27 @@
 
   // ---------------------------------------------------------- validateConfig
 
+  const FAUX_SETS = ["console", "none"];
+  const FAUX_SLIDERS = ["curve", "scanlines", "noise", "wave", "bloom", "vignette", "flicker"];
+
+  // The faux CRT block: every slider a whole number 0 to 10, the set one of
+  // the drawings, the toggles booleans. CRT mode wins: a real tube plus fake
+  // scanlines is the one thing the display forbids, so the block is turned
+  // off with a warning rather than left to fight.
+  function validateFauxCrt(raw, crtMode, errors) {
+    const r = raw && typeof raw === "object" ? raw : {};
+    const d = DEFAULT_CONFIG.fauxCrt;
+    const out = { on: r.on === true, set: FAUX_SETS.includes(r.set) ? r.set : d.set };
+    for (const k of FAUX_SLIDERS) out[k] = Math.round(clampNum(r[k], 0, 10, d[k]));
+    out.mask = r.mask === true;
+    out.reflection = r.reflection === true;
+    if (out.on && crtMode) {
+      out.on = false;
+      errors.push("FAUX CRT TURNED OFF: CRT MODE IS ON, AND ON A TUBE THE TUBE IS THE FILTER");
+    }
+    return out;
+  }
+
   // Takes the raw editable config (parsed config.json) and returns
   // { ok, cfg, errors }. cfg is the clamped, sanitized runtime shape - also
   // exactly what gets written back to config.json, so validation and
@@ -555,6 +593,7 @@
     cfg.crtMode = raw.crtMode === true;
     cfg.crtInkText = raw.crtInkText === true;
     cfg.textScale = clampNum(raw.textScale, 1, 1.5, 1);
+    cfg.fauxCrt = validateFauxCrt(raw.fauxCrt, cfg.crtMode, errors);
     cfg.dailyReloadHour =
       raw.dailyReloadHour === false || raw.dailyReloadHour === null
         ? false
@@ -668,5 +707,7 @@
     GUIDE,
     windowSegments,
     validateConfig,
+    FAUX_SETS,
+    FAUX_SLIDERS,
   };
 });

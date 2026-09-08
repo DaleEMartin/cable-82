@@ -10,6 +10,9 @@
 </head>
 <body>
 <div id="letterbox">
+  <!-- Faux CRT (config fauxCrt, flat panels): the drawn console the stage
+       sits in. set.js draws it and places the stage in its glass. -->
+  <div id="set" hidden></div>
   <div id="stage">
     <header id="band-header">
       <div id="header-left">
@@ -88,6 +91,17 @@
     </div>
     <div id="external-layer" hidden></div>
     <canvas id="tuner-snow" width="160" height="120" hidden></canvas>
+    <!-- Faux CRT tells over the picture: scanlines, the phosphor mask, the
+         dark corners, grain, the glass reflection, the mains breathe. All
+         inert unless the stage is in a faux set (style.css). -->
+    <div id="tube" aria-hidden="true">
+      <div id="tube-scan"></div>
+      <div id="tube-mask"></div>
+      <canvas id="tube-noise" width="320" height="240" hidden></canvas>
+      <div id="tube-vig"></div>
+      <div id="tube-refl"></div>
+      <div id="tube-flick"></div>
+    </div>
     <div id="tuner-blank" hidden></div>
     <!-- The on-screen display: the channel on a tune, the digits as they
          are typed, the volume as a meter of cells. -->
@@ -102,15 +116,35 @@
   <div id="power-off" hidden>
     <div id="crt-line"></div>
   </div>
+  <!-- The tube filter for faux CRT: bloom, then the barrel of the glass,
+       then the weak-signal wave, as one SVG filter on the stage. set.js fills
+       in the maps and the strengths; with every picture tell at 0 the stage
+       carries no filter at all. -->
+  <svg id="tube-svg" width="0" height="0" aria-hidden="true" focusable="false">
+    <filter id="tube-filter" filterUnits="objectBoundingBox" primitiveUnits="objectBoundingBox" x="0" y="0" width="1" height="1" color-interpolation-filters="sRGB">
+      <feGaussianBlur id="tube-blur" in="SourceGraphic" stdDeviation="0" result="blur"/>
+      <feComponentTransfer in="blur" result="glow">
+        <feFuncR type="linear" slope="0.55"/><feFuncG type="linear" slope="0.55"/><feFuncB type="linear" slope="0.55"/>
+      </feComponentTransfer>
+      <feBlend in="SourceGraphic" in2="glow" mode="screen" result="bloomed"/>
+      <feImage id="tube-barrel-map" preserveAspectRatio="none" x="0" y="0" width="1" height="1" result="bmap"/>
+      <feDisplacementMap id="tube-barrel" in="bloomed" in2="bmap" scale="0" xChannelSelector="R" yChannelSelector="G" result="curved"/>
+      <feImage id="tube-wave-map" preserveAspectRatio="none" x="0" y="0" width="1" height="1" result="wimg"/>
+      <feTile in="wimg" result="wtile"/>
+      <feOffset id="tube-wave-off" in="wtile" dx="0" dy="0" result="wmap"/>
+      <feDisplacementMap id="tube-wave" in="curved" in2="wmap" scale="0" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </svg>
 </div>
 <!-- One file per part of the set, in dependency order, no build step:
      the schema, the broadcast clock, channel 82, channel 0, the player, the
-     dial, and the boot that wires them up. -->
+     faux set, the dial, and the boot that wires them up. -->
 <script src="config-schema.js"></script>
 <script src="dial.js"></script>
 <script src="board.js"></script>
 <script src="guide.js"></script>
 <script src="video.js"></script>
+<script src="set.js"></script>
 <script src="tuner.js"></script>
 <script src="app.js"></script>
 </body>

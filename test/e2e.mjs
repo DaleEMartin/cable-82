@@ -237,9 +237,14 @@ try {
   check("the power panel stays hidden off a Pi", await room.evaluate(() => document.getElementById("p-power").hidden));
   check("the room names the channel", (await room.inputValue("#f-channelName")) === "E2E 83");
   await room.fill("#f-tagline", "SAVED FROM THE ROOM");
+  check("the faux CRT panel shows the sliders with their numbers", await room.evaluate(() => document.getElementById("f-fauxCurve").value === "3" && document.getElementById("o-fauxCurve").value === "3" && !document.getElementById("f-fauxOn").checked));
+  await room.evaluate(() => { const s = document.getElementById("f-fauxCurve"); s.value = "6"; s.dispatchEvent(new Event("input", { bubbles: true })); });
+  check("a slider shows its new number as it moves", await room.evaluate(() => document.getElementById("o-fauxCurve").value === "6"));
   await room.click("#save");
   check("the room saves", await until(async () => /Saved/.test(await room.textContent("#status")), 5000));
-  check("the save landed in config.json", JSON.parse(fs.readFileSync(configPath, "utf8")).tagline === "SAVED FROM THE ROOM");
+  const savedCfg = JSON.parse(fs.readFileSync(configPath, "utf8"));
+  check("the save landed in config.json", savedCfg.tagline === "SAVED FROM THE ROOM");
+  check("the faux CRT sliders round-trip through the room", savedCfg.fauxCrt && savedCfg.fauxCrt.curve === 6 && savedCfg.fauxCrt.on === false, JSON.stringify(savedCfg.fauxCrt));
   await room.close();
 
   // The remote.
@@ -259,6 +264,55 @@ try {
   check("the display and the control room are outside it", !scopes.root && !scopes.room);
   check("the install key waits for the browser's offer", await remote.evaluate(() => document.getElementById("install").hidden));
   await remote.close();
+
+  // Faux CRT: the flat-panel path. A save turns it on; the set reloads into
+  // the console, the picture sits in its glass at 4:3, the dial follows the
+  // tune, a click on the dial tunes, and switching off leaves the console
+  // on the wall. Then the tube rule: CRT mode on turns it back off, with a
+  // warning.
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const cfgFaux = await (await fetch(base + "/api/config")).json();
+  const fauxSave = await fetch(base + "/api/config", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-cable82-config": "1", "x-cable82-config-version": cfgFaux.version },
+    body: JSON.stringify({ ...cfgFaux.config, fauxCrt: { ...cfgFaux.config.fauxCrt, on: true, curve: 4, wave: 2, bloom: 2, noise: 3 } }),
+  });
+  check("a save can turn faux CRT on", fauxSave.status === 200);
+  check("the set reloads into the console", await until(() => page.evaluate(() => document.getElementById("letterbox").classList.contains("faux") && !document.getElementById("set").hidden && !!document.querySelector("#set svg")).catch(() => false), 8000));
+  const glass = await page.evaluate(() => {
+    const set = document.getElementById("letterbox").getBoundingClientRect();
+    const st = document.getElementById("stage").getBoundingClientRect();
+    return { setW: set.width, setH: set.height, x: st.left - set.left, y: st.top - set.top, w: st.width, h: st.height, clip: getComputedStyle(document.getElementById("stage")).clipPath, filter: getComputedStyle(document.getElementById("stage")).filter };
+  });
+  check("the console covers the panel at 16:9", Math.abs(glass.setW / glass.setH - 16 / 9) < 0.01 && glass.setW >= 1280 - 1, JSON.stringify(glass));
+  check("the picture sits in the glass at 4:3", Math.abs(glass.w / glass.h - 4 / 3) < 0.01 && glass.x > 0 && glass.y > 0 && glass.x + glass.w < glass.setW * 0.75, JSON.stringify(glass));
+  check("the glass is cut to the picture's own curve", /^polygon\(/.test(glass.clip), glass.clip);
+  check("the picture tells run as one filter on the stage", /url\(/.test(glass.filter), glass.filter);
+  const numbersOnRing = await page.evaluate(() => Array.from(document.querySelectorAll("#set .dn")).map((g) => g.dataset.ch));
+  check("the dial carries the lineup's numbers in order", numbersOnRing.join(",") === (clips ? "0,2,5,82" : "0,5,82"), numbersOnRing.join(","));
+  const pointerBefore = await page.evaluate(() => document.getElementById("set-pointer").style.transform);
+  await tune({ cmd: "set", channel: 82 });
+  check("the pointer turns on a tune", await until(() => page.evaluate((was) => document.getElementById("set-pointer").style.transform !== was && document.querySelector("#set .dn.on") && document.querySelector("#set .dn.on").dataset.ch === "82", pointerBefore), 5000));
+  await page.click("#set .dn[data-ch=\"0\"]");
+  check("a click on the dial tunes", await until(() => visible("#guide-layer"), 5000));
+  await tune({ cmd: "power" });
+  check("switched off, the console stays and the dark screen fills only the glass", await until(() => page.evaluate(() => {
+    const p = document.getElementById("power-off");
+    if (p.hidden) return false;
+    const pr = p.getBoundingClientRect(), sr = document.getElementById("stage").getBoundingClientRect();
+    return !document.getElementById("set").hidden && Math.abs(pr.left - sr.left) < 1 && Math.abs(pr.width - sr.width) < 1;
+  }), 3000));
+  await tune({ cmd: "power" });
+  await until(() => page.evaluate(() => document.getElementById("power-off").hidden), 3000);
+  const cfgTube = await (await fetch(base + "/api/config")).json();
+  const tubeSave = await (await fetch(base + "/api/config", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-cable82-config": "1", "x-cable82-config-version": cfgTube.version },
+    body: JSON.stringify({ ...cfgTube.config, crtMode: true }),
+  })).json();
+  check("CRT mode turns faux CRT off on save, and says so", tubeSave.ok && tubeSave.config.fauxCrt.on === false && tubeSave.warnings.some((w) => /FAUX CRT TURNED OFF/.test(w)), JSON.stringify(tubeSave.warnings));
+  check("the set reloads out of the console", await until(() => page.evaluate(() => !document.getElementById("letterbox").classList.contains("faux") && document.getElementById("set").hidden).catch(() => false), 8000));
+  await page.setViewportSize({ width: 640, height: 480 });
 
   // A broken config.json at first start: the set says so instead of
   // showing factory defaults, and a Save from the room brings it back.

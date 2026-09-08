@@ -186,6 +186,9 @@
     };
 
     const guide = window.Cable82Guide.create({ cfg, dial, library });
+    // The faux set (flat panels): draws the console around the stage and
+    // keeps its dial on the channel. A no-op on a tube.
+    const set = window.Cable82Set.create({ cfg, dial, tune: (n) => setNumber(n) });
     const video = window.Cable82Video.create({ layer: L.video, library, soundLevel, card });
 
     // ---------------- the router
@@ -263,6 +266,7 @@
       dialIndex = i;
       try { sessionStorage.setItem("cable82.tuner.channel", String(dial[i].number)); } catch (e) { /* fine */ }
       activeStops = startChannelView(dial[i]);
+      set.setChannel(dial[i].number);
     }
 
     function tuneToIndex(i, opts) {
@@ -344,6 +348,7 @@
       const crt = (cfg.tuner.power || "crt") === "crt";
       if (powered) {
         powered = false;
+        set.setPowered(false);
         if (!crt) {
           stopChannel();
           L.power.hidden = false;
@@ -370,6 +375,7 @@
         }
       } else {
         powered = true;
+        set.setPowered(true);
         if (!crt) {
           L.power.hidden = true;
           applyChannel(dialIndex);
@@ -474,12 +480,14 @@
 
     // ---------------- sign on
     applySound();
+    set.setPowered(powered);
     if (powered) {
       applyChannel(dialIndex);
       if (dial.length > 1) banner(dial[dialIndex].number, dial[dialIndex].name);
     } else {
       board.suspend(); // switched off before the reload: stay dark and silent
       L.power.hidden = false;
+      set.setChannel(dial[dialIndex].number);
     }
 
     return { command, board };

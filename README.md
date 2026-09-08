@@ -21,6 +21,7 @@ Features:
 - **The control room** at `/config` - everything, one page, one Save. The set picks the change up at once.
 - **Switches off like a tube** - the picture folds into a bright line, snaps to a dot, and the phosphor fades. On, it blooms back open.
 - **Made for CRTs** - 4:3 composition, per-axis overscan margins, a broadcast-safe palette, and a softer one for composite and RF.
+- **Faux CRT for flat panels** - the picture plays inside a drawn wood console that fills the screen, its channel dial turning on every tune, with the tells of a tube as settings: curve, scanlines, noise, wave, bloom, vignette.
 
 Resources:
 
@@ -390,7 +391,17 @@ Open the **Picture** panel, under Display, in the control room:
 - **Overscan margins**, one per axis: tubes rarely crop evenly, so give the sides and the top/bottom each what your set eats.
 
 Pages fit themselves to whatever is left: a long fact or the weather card shrinks a little, and only if that is not enough does the weather card give up its sunrise line and shrink further.
-There are no fake scanline filters in CABLE 82: the CRT is the filter.
+There are no fake scanline filters for a tube in CABLE 82: the CRT is the filter.
+
+### On a flat panel: faux CRT
+
+A flat panel has no filter, so the set can draw one.
+Turn on **Faux CRT** in the control room's Faux CRT panel, under Display, and the 4:3 picture plays inside a drawn 1970s wood console that fills the screen edge to edge, so the television's own frame is the console's frame.
+The console's channel dial is live: it carries the lineup's numbers, its pointer turns on every tune, and a click on a number tunes.
+The tells of a tube are sliders, 0 to 10, each off at 0: **Curve** (the bulge of the glass; the picture and the glass bend together, cut where the picture ends), **Scanlines**, **Noise**, **Wave** (a slow weak-signal wobble), **Bloom**, **Vignette**, and **Flicker**, plus a phosphor mask and a reflection for the people who miss them.
+Curve, wave, and bloom run as one filter on the picture and cost a full-screen pass per frame; the rest are free.
+A Raspberry Pi 3 feeding a flat panel is happiest with those three at 0 and the others where you like them.
+Faux CRT is ignored while CRT mode is on, and says so when you save: a real tube needs none of it.
 
 ## Updating
 

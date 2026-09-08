@@ -28,6 +28,7 @@
 <script src="../board.js"></script>
 <script src="../guide.js"></script>
 <script src="../video.js"></script>
+<script src="../set.js"></script>
 <script src="../tuner.js"></script>
 <script src="../app.js"></script>
 <script>
@@ -119,6 +120,13 @@
     eq(C.textColorFor("#102040"), C.PALETTE.white); // dark bg, light text
   });
 
+  t("faux set geometry: flat glass at curve 0, corners pulled in with curve", () => {
+    const Set = window.Cable82Set;
+    const flat = Set.faceplate(0), bent = Set.faceplate(6);
+    eq(Math.round(Math.min(...flat.map((p) => p[1]))), 0);
+    eq(bent[0][0] > flat[0][0], true);
+    eq(Set.dialAngle(0, 3), -150);
+  });
   t("clampNum clamps and falls back", () => {
     eq(C.clampNum(50, 0, 15, 7), 15);
     eq(C.clampNum(-3, 0, 15, 7), 0);

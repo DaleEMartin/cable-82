@@ -50,6 +50,7 @@
   // ---------------------------------------------------------- tiny DOM helpers
 
   const $ = (id) => document.getElementById(id);
+  const FAUX_SLIDERS = ["curve", "scanlines", "noise", "wave", "bloom", "vignette", "flicker"];
 
   function el(tag, props, children) {
     const n = document.createElement(tag);
@@ -521,6 +522,16 @@
     $("f-crtInkText").checked = cfg.crtInkText === true;
     $("f-textScale").value = cfg.textScale != null ? cfg.textScale : 1;
     fillReloadSelect(cfg.dailyReloadHour);
+    const fx = cfg.fauxCrt || {};
+    $("f-fauxOn").checked = fx.on === true;
+    $("f-fauxSet").value = fx.set || "console";
+    for (const k of FAUX_SLIDERS) {
+      const id = "f-faux" + k[0].toUpperCase() + k.slice(1);
+      $(id).value = fx[k] != null ? fx[k] : 0;
+      $("o-faux" + k[0].toUpperCase() + k.slice(1)).value = $(id).value;
+    }
+    $("f-fauxMask").checked = fx.mask === true;
+    $("f-fauxReflection").checked = fx.reflection === true;
 
     const crawl = cfg.crawl || {};
     $("f-crawlFlag").value = crawl.flag != null ? crawl.flag : "";
@@ -663,6 +674,14 @@
     $("jokesCount").textContent = nj ? "(" + nj + ")" : "";
   }
 
+  // The faux CRT sliders each show their number beside them.
+  function wireFauxSliders() {
+    for (const k of FAUX_SLIDERS) {
+      const K = k[0].toUpperCase() + k.slice(1);
+      $("f-faux" + K).addEventListener("input", () => { $("o-faux" + K).value = $("f-faux" + K).value; });
+    }
+  }
+
   function updateVolumeOut() {
     $("musicVolumeOut").textContent = $("f-musicVolume").value + "%";
   }
@@ -777,6 +796,10 @@
       crtMode: $("f-crtMode").checked,
       crtInkText: $("f-crtInkText").checked,
       textScale: numVal("f-textScale"),
+      fauxCrt: Object.assign(
+        { on: $("f-fauxOn").checked, set: $("f-fauxSet").value, mask: $("f-fauxMask").checked, reflection: $("f-fauxReflection").checked },
+        Object.fromEntries(FAUX_SLIDERS.map((k) => [k, Number($("f-faux" + k[0].toUpperCase() + k.slice(1)).value)]))
+      ),
       dailyReloadHour: reload === "off" ? false : Number(reload),
       facts: linesToArray($("f-facts").value),
       dadJokes: linesToArray($("f-dadJokes").value),
@@ -1092,6 +1115,7 @@
     $("wxLookup").addEventListener("click", lookupWx);
     $("wxSearch").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); lookupWx(); } });
     $("f-musicVolume").addEventListener("input", updateVolumeOut);
+    wireFauxSliders();
     wireGroupNav();
     loadVersion();
     loadPower();

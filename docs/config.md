@@ -111,6 +111,11 @@ In CRT mode the whole palette is swapped for a softer one and the crawl is pinne
 | `crtMode` | The softer palette and no drop shadow, for composite or RF | `false` |
 | `crtInkText` | Dark text on color pages while CRT mode is on; white smears on some tubes | `false` |
 | `textScale` | Enlarges body, kicker, crawl, guide, and small header text, 1 to 1.5 | `1` |
+| `fauxCrt.on` | Faux CRT, for a flat panel: the picture plays inside a drawn wood console that fills the screen. Turned off with a warning while `crtMode` is on | `false` |
+| `fauxCrt.set` | The drawing: `console` (wood, with a live channel dial) or `none` (the glass alone) | `"console"` |
+| `fauxCrt.curve` | The bulge of the glass, 0 to 10; the picture and the glass bend together, 0 is flat | `3` |
+| `fauxCrt.scanlines`, `fauxCrt.noise`, `fauxCrt.wave`, `fauxCrt.bloom`, `fauxCrt.vignette`, `fauxCrt.flicker` | The tube's tells, each 0 to 10: the line pattern, grain, a weak-signal wobble, bright bleed, dark corners, a mains breathe | `4`, `2`, `1`, `2`, `3`, `0` |
+| `fauxCrt.mask`, `fauxCrt.reflection` | A faint RGB phosphor triad; a soft highlight on the glass | `false`, `false` |
 | `dailyReloadHour` | The hour (0 to 23) the display reloads itself, or `false` | `4` |
 
 ## Files the server keeps beside your videos

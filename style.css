@@ -3,7 +3,8 @@
    solid color bands, hard cuts, all caps. The one shadow allowed is the hard
    offset drop shadow real character generators used for legibility over color
    (solid, no blur) — never a soft neon glow. No gradients, no fake scanlines:
-   the CRT is the filter. */
+   the CRT is the filter. The one exception is at the end of this file: faux
+   CRT mode, for a flat panel, where there is no tube to be the filter. */
 
 @font-face {
   font-family: "VGA";
@@ -559,3 +560,131 @@ html, body { height: 100%; background: var(--letterbox); }
   opacity: 0.55;
 }
 #bug-meter i.on { background: var(--c-white); opacity: 1; }
+
+/* ------------------------------------------------------------- faux CRT */
+/* The flat-panel path (config fauxCrt; set.js). The letterbox becomes a 16:9
+   drawing that covers the panel, so the television's own frame is the
+   console's frame; the stage sits in the console's glass at a fixed 4:3
+   window of it. A panel that is not 16:9 crops the wood, never the glass.
+   The wood, the brass, the cloth: one palette, here, read by the SVG. */
+#set {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  --set-wood: #5B3A22;
+  --set-wood-dk: #3E2615;
+  --set-wood-lt: #7A5232;
+  --set-bezel: #2A2622;
+  --set-bezel-lt: #4A423A;
+  --set-glass: #0B0C12;
+  --set-panel: #2E2A25;
+  --set-dial: #1B1915;
+  --set-dial-in: #26221D;
+  --set-dial-rim: #141210;
+  --set-knob: #3A342C;
+  --set-brass: #C9A24A;
+  --set-badge: #15151C;
+  --set-paper: #E9E4D6;
+  --set-soft: #B9B2A2;
+  --set-label: #8A7E6E;
+  --set-engrave: #6A5F52;
+  --set-lamp: #D63B2F;
+  --set-lamp-ring: #3A2321;
+  --set-cloth: #2B2620;
+  --set-cloth-hi: #4A4036;
+  --set-cloth-mid: #3F3630;
+  --set-cloth-edge: #1E1A16;
+}
+#set[hidden] { display: none; }
+#set svg { display: block; width: 100%; height: 100%; }
+/* The dial is live: the pointer turns on a tune, a number is a button. */
+#set #set-pointer { transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1); }
+#set .dn { cursor: pointer; }
+#set .dn text { fill: var(--set-soft); transition: fill 0.15s ease; }
+#set .dn:hover text, #set .dn:focus text, #set .dn.on text { fill: var(--set-paper); }
+#set .dn:focus { outline: none; }
+#set .dn:focus-visible text { fill: var(--set-brass); }
+#set #set-lamp { transition: opacity 0.4s ease; }
+
+body.faux { overflow: hidden; }
+#letterbox.faux {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: max(100vw, calc(100vh * 16 / 9));
+  height: max(100vh, calc(100vw * 9 / 16));
+  display: block;
+  overflow: hidden;
+}
+/* The glass: 1200x900 of a 1920x1080 drawing (set.js GLASS). */
+#letterbox.faux #stage,
+#letterbox.faux #power-off {
+  position: absolute;
+  left: 6.7708%;
+  top: 6.4815%;
+  width: 62.5%;
+  height: 83.3333%;
+  z-index: 1;
+}
+#letterbox.faux #power-off { z-index: 70; }
+#letterbox.faux #crt-line { width: 100%; }
+
+/* The tells. Each overlay reads one --tube-* number the set writes on the
+   stage; at 0 it is invisible and costs nothing. They sit above every
+   channel layer and the on-screen display, so the picture and its plate
+   are one surface under the glass. `tells` is on whenever faux CRT is on;
+   `faux` (the console layout) only with a set drawn. */
+#tube { display: none; }
+#letterbox.tells #tube {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 65;
+  pointer-events: none;
+}
+#tube > * { position: absolute; inset: 0; }
+#tube-scan {
+  opacity: var(--tube-scan, 0);
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0,
+    rgba(0, 0, 0, 0) calc(100% / 480),
+    rgba(0, 0, 0, 0.6) calc(100% / 480),
+    rgba(0, 0, 0, 0.6) calc(100% / 240)
+  );
+}
+#tube-mask {
+  opacity: var(--tube-mask, 0);
+  mix-blend-mode: multiply;
+  background: repeating-linear-gradient(to right, #ff8c8c 0 1px, #8cff8c 1px 2px, #8c8cff 2px 3px);
+}
+#tube-noise {
+  width: 100%;
+  height: 100%;
+  opacity: var(--tube-noise, 0);
+  image-rendering: pixelated;
+  mix-blend-mode: overlay;
+}
+#tube-noise[hidden] { display: none; }
+#tube-vig {
+  opacity: var(--tube-vig, 0);
+  background: radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.9) 100%);
+}
+#tube-refl {
+  inset: 4% auto auto 6%;
+  width: 34%;
+  height: 22%;
+  opacity: var(--tube-refl, 0);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 40% 40%, rgba(255, 250, 235, 0.16), rgba(255, 250, 235, 0) 70%);
+}
+#tube-flick { opacity: 0; background: #fff; mix-blend-mode: overlay; }
+#stage.flicker #tube-flick { animation: tube-flick 100ms steps(2) infinite; }
+@keyframes tube-flick {
+  0% { opacity: var(--tube-flick, 0); }
+  50% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #stage.flicker #tube-flick { animation: none; }
+}
