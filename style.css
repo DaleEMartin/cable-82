@@ -583,13 +583,10 @@ html, body { height: 100%; background: var(--letterbox); }
   --set-dial-rim: #141210;
   --set-knob: #3A342C;
   --set-brass: #C9A24A;
-  --set-badge: #15151C;
   --set-paper: #E9E4D6;
   --set-soft: #B9B2A2;
   --set-label: #8A7E6E;
   --set-engrave: #6A5F52;
-  --set-lamp: #D63B2F;
-  --set-lamp-ring: #3A2321;
   --set-cloth: #2B2620;
   --set-cloth-hi: #4A4036;
   --set-cloth-mid: #3F3630;
@@ -604,7 +601,6 @@ html, body { height: 100%; background: var(--letterbox); }
 #set .dn:hover text, #set .dn:focus text, #set .dn.on text { fill: var(--set-paper); }
 #set .dn:focus { outline: none; }
 #set .dn:focus-visible text { fill: var(--set-brass); }
-#set #set-lamp { transition: opacity 0.4s ease; }
 
 body.faux { overflow: hidden; }
 #letterbox.faux {

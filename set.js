@@ -5,7 +5,8 @@
    glass, scanlines, noise, a weak-signal wave, bloom, the dark corners - are
    settings in the control room (config fauxCrt). The console's dial is
    live: it shows the channel, its pointer turns on every tune, and a click
-   on a number tunes.
+   on a number tunes. Nothing else is drawn on the cabinet that the set
+   cannot honor: no volume knob, no lamp.
    The one rule that keeps it honest: the glass is cut where the picture
    ends. The faceplate polygon is derived from the same mapping the barrel
    filter applies, so the picture's edge and the glass edge are one curve at
@@ -164,7 +165,7 @@
   // Drawn once as inline SVG. Colors come from style.css (--set-*), so the
   // look of the wood and the brass is a stylesheet decision.
 
-  function consoleSvg(numberText) {
+  function consoleSvg() {
     return [
       '<svg viewBox="0 0 ' + DRAWING.w + ' ' + DRAWING.h + '" preserveAspectRatio="none" aria-hidden="true">',
       "<defs>",
@@ -187,12 +188,6 @@
       '<rect x="96" y="38" width="1268" height="964" rx="28" fill="var(--set-bezel)"/>',
       '<rect x="96" y="38" width="1268" height="964" rx="28" fill="none" stroke="var(--set-bezel-lt)" stroke-width="2"/>',
       '<path id="set-opening" fill="var(--set-glass)"/>',
-      // the badge: the station's number on the cabinet rail, with its lamp
-      '<g id="set-badge" transform="translate(730 1040)">',
-      '<rect x="-70" y="-22" width="140" height="44" rx="6" fill="var(--set-badge)" stroke="var(--set-bezel-lt)" stroke-width="2"/>',
-      '<text x="0" y="13" text-anchor="middle" font-family="VGA, monospace" font-size="32" fill="var(--set-paper)">' + numberText + "</text>",
-      '<circle id="set-lamp" cx="48" cy="0" r="6" fill="var(--set-lamp)" stroke="var(--set-lamp-ring)" stroke-width="2"/>',
-      "</g>",
       '<text x="250" y="1052" font-family="VGA, monospace" font-size="18" letter-spacing="4" fill="var(--set-engrave)">SOLID STATE</text>',
       '<text x="1020" y="1052" font-family="VGA, monospace" font-size="18" letter-spacing="4" fill="var(--set-engrave)">CABLE 82</text>',
       // the control panel: the dial, a volume knob, the cloth
@@ -207,12 +202,7 @@
       "</g>",
       '<text x="' + DIAL.cx + '" y="548" text-anchor="middle" font-family="VGA, monospace" font-size="18" letter-spacing="4" fill="var(--set-label)">CHANNEL</text>',
       "</g>",
-      '<g id="set-volume">',
-      '<circle cx="1630" cy="660" r="58" fill="var(--set-dial-in)" stroke="var(--set-bezel-lt)" stroke-width="3"/>',
-      '<path d="M1630 660 L1630 616" stroke="var(--set-brass)" stroke-width="5" stroke-linecap="round" transform="rotate(35 1630 660)"/>',
-      '<text x="1630" y="752" text-anchor="middle" font-family="VGA, monospace" font-size="18" letter-spacing="4" fill="var(--set-label)">VOLUME</text>',
-      "</g>",
-      '<rect x="1428" y="790" width="404" height="186" rx="12" fill="url(#set-cloth)" stroke="var(--set-cloth-edge)" stroke-width="3"/>',
+      '<rect x="1428" y="620" width="404" height="356" rx="12" fill="url(#set-cloth)" stroke="var(--set-cloth-edge)" stroke-width="3"/>',
       "</svg>",
     ].join("");
   }
@@ -236,11 +226,10 @@
 
     // The tells always; the console (and the glass layout) unless the set
     // is "none", which keeps the letterbox and dresses the picture alone.
-    const bulletin = dial.find((c) => c.type === "bulletin");
     const furniture = F.set !== "none";
     letterbox.classList.add("tells");
     if (furniture) {
-      host.innerHTML = consoleSvg(bulletin ? String(bulletin.number) : "TV");
+      host.innerHTML = consoleSvg();
       host.hidden = false;
       letterbox.classList.add("faux");
       doc.body.classList.add("faux");
@@ -320,7 +309,6 @@
     const ring = [...dial].sort((a, b) => a.number - b.number);
     const numbers = furniture ? host.querySelector("#set-numbers") : null;
     const pointer = furniture ? host.querySelector("#set-pointer") : null;
-    const lamp = furniture ? host.querySelector("#set-lamp") : null;
     if (numbers) {
       ring.forEach((ch, i) => {
         const a = (dialAngle(i, ring.length) * Math.PI) / 180;
@@ -354,8 +342,8 @@
       pointer.style.transform = "rotate(" + dialAngle(i, ring.length) + "deg)";
       host.querySelectorAll(".dn").forEach((g) => g.classList.toggle("on", Number(g.dataset.ch) === number));
     }
-    function setPowered(on) {
-      if (lamp) lamp.style.opacity = on ? "1" : "0.25";
+    function setPowered() {
+      // The console has no lamp; the glass going dark is the whole story.
     }
     return { on: true, setChannel, setPowered };
   }
