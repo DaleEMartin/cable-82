@@ -1,8 +1,8 @@
-/* cable-82 — 1982 cable character-generator look.
+/* cable-82: the 1982 cable character-generator look.
    Identity: bundled IBM VGA bitmap face, broadcast-safe saturated primaries,
    solid color bands, hard cuts, all caps. The one shadow allowed is the hard
    offset drop shadow real character generators used for legibility over color
-   (solid, no blur) — never a soft neon glow. No gradients, no fake scanlines:
+   (solid, no blur), never a soft neon glow. No gradients, no fake scanlines:
    the CRT is the filter. The one exception is at the end of this file: faux
    CRT mode, for a flat panel, where there is no tube to be the filter. */
 
@@ -203,7 +203,7 @@ html, body { height: 100%; background: var(--letterbox); }
   white-space: nowrap;
 }
 
-/* Fixed category flag pinned at the left of the ticker — the cable-news
+/* Fixed category flag pinned at the left of the ticker, the cable-news
    lower-third signature. Text scrolls past it in the window to its right. */
 #crawl-flag {
   flex: 0 0 auto;
