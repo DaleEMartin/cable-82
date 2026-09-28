@@ -54,11 +54,12 @@ A `guide` channel takes its settings from `preview` below.
 | Key | What it does | Default |
 | --- | --- | --- |
 | `sources.keyboard` | Arrow keys and digits on the display's keyboard | `true` |
-| `sources.gamepad` | A USB gamepad's d-pad; Select jumps home to the board | `true` |
+| `sources.gamepad` | A USB gamepad or joystick: up and down change the channel, left and right the volume, Select jumps home to the board, two presses of any other button are the power key, and a long run of presses shuts the machine down (`shutdownPresses`) | `true` |
 | `sources.http` | `POST /api/tune`, which the remote uses. Off, the remote says so | `true` |
 | `wrap` | Whether the dial wraps at the ends | `true` |
 | `cut` | What covers a channel change: `static`, `black`, or `none` | `static` |
 | `power` | How the picture goes out: `crt` (folds to a line and fades) or `black` | `crt` |
+| `shutdownPresses` | How many presses of a gamepad button in a row shut the machine down, 5 to 20; `0` turns the count off. Works where the control room's Shut down button does | `10` |
 
 ## Channel 0, the guide
 

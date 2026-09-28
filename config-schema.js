@@ -528,6 +528,16 @@
   // high voltage drops, the line pulls in to a dot, and the phosphor fades.
   // "black" is a flat panel: gone the moment you press it.
   const POWER_STYLES = ["crt", "black"];
+  // How many presses of a gamepad button in a row switch the machine off.
+  // 0 turns that off; anything else is held between 5 and 20, so a double
+  // press (the power key) can never be mistaken for it.
+  const SHUTDOWN_PRESSES = { dflt: 10, min: 5, max: 20 };
+  function validateShutdownPresses(v) {
+    if (v === 0 || v === false) return 0;
+    const n = Math.round(Number(v));
+    if (v == null || v === "" || !Number.isFinite(n)) return SHUTDOWN_PRESSES.dflt;
+    return Math.min(SHUTDOWN_PRESSES.max, Math.max(SHUTDOWN_PRESSES.min, n));
+  }
   function validateTuner(raw) {
     const t = raw && typeof raw === "object" ? raw : {};
     const src = t.sources && typeof t.sources === "object" ? t.sources : {};
@@ -541,6 +551,7 @@
       wrap: on(t.wrap, true),
       cut: CUT_STYLES.includes(t.cut) ? t.cut : "static",
       power: POWER_STYLES.includes(t.power) ? t.power : "crt",
+      shutdownPresses: validateShutdownPresses(t.shutdownPresses),
     };
   }
 

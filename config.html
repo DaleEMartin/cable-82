@@ -526,11 +526,11 @@
       </section>
       <section class="panel" id="p-tuning">
         <h3>Tuning</h3>
-        <p class="hint">How the dial is turned: arrow keys and digits, a gamepad d-pad, or <code>POST /api/tune</code> from anything that can make a request. The <a href="/remote-control" target="_blank" rel="noopener">remote control</a> uses the HTTP bus.</p>
+        <p class="hint">How the dial is turned: arrow keys and digits, a gamepad or joystick, or <code>POST /api/tune</code> from anything that can make a request. The <a href="/remote-control" target="_blank" rel="noopener">remote control</a> uses the HTTP bus.</p>
         <div class="grid">
           <div class="field">
             <div class="toggle"><input type="checkbox" id="f-tunerKeyboard"><label for="f-tunerKeyboard">Keyboard tuning (arrows, digits)</label></div>
-            <div class="toggle"><input type="checkbox" id="f-tunerGamepad"><label for="f-tunerGamepad">Gamepad tuning (d-pad)</label></div>
+            <div class="toggle"><input type="checkbox" id="f-tunerGamepad"><label for="f-tunerGamepad">Gamepad tuning (stick or d-pad, buttons)</label></div>
           </div>
           <div class="field">
             <div class="toggle"><input type="checkbox" id="f-tunerHttp"><label for="f-tunerHttp">HTTP tuning (/api/tune)</label></div>
@@ -552,6 +552,11 @@
               <option value="black">Straight to black (a flat panel)</option>
             </select>
             <span class="note">The picture folds into one bright line, snaps to a dot, and the phosphor fades. Coming back, it blooms open.</span>
+          </div>
+          <div class="field">
+            <label for="f-tunerShutdown">Presses to shut down</label>
+            <input type="number" id="f-tunerShutdown" min="0" max="20" step="1">
+            <span class="note">A gamepad button pressed this many times in a row shuts the machine down. Works where the Shut down button does. 5 to 20; 0 turns the count off. Two presses are the power key.</span>
           </div>
         </div>
       </section>

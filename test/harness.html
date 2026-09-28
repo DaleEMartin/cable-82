@@ -381,6 +381,37 @@
     eq(cfg.tuner.power, "crt");
   });
 
+  t("a stick moves the sound one cell and stops at the ends; the volume key walks the ring from any level", () => {
+    eq(C.stepVolumeLevel(1, -1), 0.875);
+    eq(C.stepVolumeLevel(1, +1), 1);
+    eq(C.stepVolumeLevel(0, -1), 0);
+    eq(C.stepVolumeLevel(0.35, +1), 0.5);
+    eq(C.nextVolumeLevel(1), 0);
+    eq(C.nextVolumeLevel(0), 0.35);
+    eq(C.nextVolumeLevel(0.5), 0.7);
+  });
+
+  t("presses of one button in a row are counted: two is power, the long run is shutdown", () => {
+    let run = C.countPress(null, "0:0", 1000);
+    run = C.countPress(run, "0:0", 1000 + C.PRESS_GAP_MS);
+    eq(run.count, 2);
+    eq(C.countPress(run, "0:0", run.at + C.PRESS_GAP_MS + 1).count, 1);
+    eq(C.countPress(run, "0:1", run.at + 10).count, 1);
+    eq(C.runMeaning(1, 10), null);
+    eq(C.runMeaning(2, 10), "power");
+    eq(C.runMeaning(9, 10), null);
+    eq(C.runMeaning(10, 10), "shutdown");
+    eq(C.runMeaning(10, 0), null);
+  });
+
+  t("validateConfig holds the presses that shut the machine down between 5 and 20, and 0 is off", () => {
+    eq(C.validateConfig({}).cfg.tuner.shutdownPresses, 10);
+    eq(C.validateConfig({ tuner: { shutdownPresses: 0 } }).cfg.tuner.shutdownPresses, 0);
+    eq(C.validateConfig({ tuner: { shutdownPresses: 2 } }).cfg.tuner.shutdownPresses, 5);
+    eq(C.validateConfig({ tuner: { shutdownPresses: 99 } }).cfg.tuner.shutdownPresses, 20);
+    eq(C.validateConfig({ tuner: { shutdownPresses: "many" } }).cfg.tuner.shutdownPresses, 10);
+  });
+
   t("validateConfig keeps a known tuner cut and falls back on an unknown one", () => {
     eq(C.validateConfig({ tuner: { cut: "black" } }).cfg.tuner.cut, "black");
     eq(C.validateConfig({ tuner: { cut: "none" } }).cfg.tuner.cut, "none");

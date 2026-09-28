@@ -862,9 +862,11 @@ function createApp(opts = {}) {
   let lastTune = null;
   // The four keys of a 1960s remote plus a direct dial: up/down step the
   // dial, set jumps to a number, volume steps the sound (loud, off, soft,
-  // medium, loud), power toggles the picture off and on. Each is an event
-  // the display interprets; the server never holds a channel or a level.
-  const TUNE_CMDS = ["up", "down", "set", "volume", "power"];
+  // medium, loud), power toggles the picture off and on. volumeUp and
+  // volumeDown move the sound one cell of the meter, for a source that has
+  // two directions to give. Each is an event the display interprets; the
+  // server never holds a channel or a level.
+  const TUNE_CMDS = ["up", "down", "set", "volume", "volumeUp", "volumeDown", "power"];
 
   function sseBroadcast(event, data) {
     const msg = "event: " + event + "\ndata: " + JSON.stringify(data) + "\n\n";
@@ -894,7 +896,7 @@ function createApp(opts = {}) {
           return send(res, 400, "INVALID JSON");
         }
         const cmd = raw && raw.cmd;
-        if (!TUNE_CMDS.includes(cmd)) return send(res, 400, "CMD MUST BE up, down, set, volume, OR power");
+        if (!TUNE_CMDS.includes(cmd)) return send(res, 400, "CMD MUST BE up, down, set, volume, volumeUp, volumeDown, OR power");
         const evt = { seq: ++tuneSeq, cmd };
         if (cmd === "set") {
           const n = Math.round(Number(raw.channel));

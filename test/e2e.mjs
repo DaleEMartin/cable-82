@@ -4,8 +4,9 @@
 // way a living room drives it. It boots a server on a temporary config with
 // no feeds and no music (nothing leaves the machine), tunes through every
 // kind of channel over the bus, watches a real file boundary roll, presses
-// the volume and power keys, saves from the control room and sees the set
-// reload itself, and asks the remote how many sets are listening.
+// the volume and power keys, works a joystick (a stand-in for one: the
+// browser is told a pad is plugged in), saves from the control room and sees
+// the set reload itself, and asks the remote how many sets are listening.
 //
 // It needs two things CABLE 82 itself does not: a browser and an encoder.
 //   - Playwright, for the browser. Not a dependency of the station; give it
@@ -127,6 +128,15 @@ const tune = (body) =>
 
 const browser = await playwright.chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required"] });
 const context = await browser.newContext({ viewport: { width: 640, height: 480 } });
+// A joystick for the drill: one stick, eight buttons, nothing pressed, and
+// not plugged in until the drill says so. Every page load gets a fresh one.
+await context.addInitScript(() => {
+  const pad = { index: 0, id: "E2E stick", connected: true, mapping: "", timestamp: 0, axes: [0, 0], buttons: Array.from({ length: 8 }, () => ({ pressed: false, value: 0 })) };
+  let plugged = false;
+  navigator.getGamepads = () => (plugged ? [pad] : []);
+  window.__pad = pad;
+  window.__plug = () => { plugged = true; window.dispatchEvent(new Event("gamepadconnected")); };
+});
 const page = await context.newPage();
 const pageErrors = [];
 page.on("pageerror", (e) => pageErrors.push(String(e)));
@@ -215,6 +225,122 @@ try {
   await page.keyboard.type("0");
   check("digits jump to a number", await until(() => visible("#guide-layer"), 5000));
 
+  // The joystick. Left and right move the sound a cell at a time, a held
+  // stick keeps moving it, a corner is no direction. Two presses of the
+  // button are the power key; ten shut the machine down, counted on the
+  // screen from the third.
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const stick = (x, y) => page.evaluate(([ax, ay]) => { window.__pad.axes = [ax, ay]; }, [x, y]);
+  const nudge = async (x, y) => { await stick(x, y); await wait(120); await stick(0, 0); await wait(120); };
+  const button = (b, down) => page.evaluate(([i, d]) => { window.__pad.buttons[i] = { pressed: d, value: d ? 1 : 0 }; }, [b, down]);
+  const tap = async (times, b = 0) => {
+    for (let n = 0; n < times; n++) { await button(b, true); await wait(80); await button(b, false); await wait(80); }
+  };
+  const cells = () => page.evaluate(() => document.querySelectorAll("#bug-meter .on").length);
+  const plate = () => page.evaluate(() => {
+    const b = document.getElementById("channel-bug");
+    return { big: document.getElementById("bug-number").textContent, small: document.getElementById("bug-name").textContent, shown: !b.hidden && !b.classList.contains("fading"), on: b.parentNode.id };
+  });
+  await page.evaluate(() => window.__plug());
+  await nudge(-1, 0);
+  check("the stick pushed left turns the sound down one cell", await until(async () => (await plate()).big === "VOLUME" && (await cells()) === 7, 3000), "cells=" + (await cells()));
+  await nudge(1, 0);
+  check("pushed right, up one cell", await until(async () => (await cells()) === 8, 3000), "cells=" + (await cells()));
+  await nudge(1, 0);
+  check("loud is the top", (await cells()) === 8);
+  await stick(-1, 0);
+  await wait(1300);
+  await stick(0, 0);
+  const held = await cells();
+  check("held left, it keeps going down", held <= 4 && held >= 1, "cells=" + held);
+  await wait(400);
+  check("and stops when the stick is let go", (await cells()) === held);
+  await stick(1, -1);
+  await wait(400);
+  await stick(1, 0);
+  await wait(700);
+  await stick(0, 0);
+  await wait(150);
+  check("a corner is no direction, and the stick is spent until it has been back to the middle", (await cells()) === held && (await visible("#guide-layer")), "cells=" + (await cells()));
+  await nudge(0, -1);
+  check("up on the stick still turns the dial", await until(async () => /^CH (2|5)$/.test((await plate()).big), 3000), (await plate()).big);
+  await wait(400);
+  await nudge(0, 1);
+  check("and down turns it back", await until(() => visible("#guide-layer"), 5000));
+  await wait(400);
+
+  await tap(1);
+  await wait(700);
+  check("one press of the button does nothing", !(await visible("#power-off")));
+  await tap(2);
+  check("two presses switch the set off", await until(() => visible("#power-off"), 3000));
+  await wait(300);
+  await nudge(-1, 0);
+  check("the stick is dead while it is off", await visible("#power-off"));
+  await tap(2);
+  check("two more bring the picture back on the same channel", await until(async () => !(await visible("#power-off")) && (await visible("#guide-layer")), 3000));
+  await wait(300);
+  await tap(1, 0); await tap(1, 1);
+  await wait(700);
+  check("one press each of two buttons is not a double press", !(await visible("#power-off")));
+
+  await tap(4);
+  const counting = await plate();
+  check("from the third press the screen counts toward the shutdown", counting.big === "SHUT DOWN" && counting.small === "4 OF 10" && counting.shown && (await cells()) === 3, JSON.stringify(counting));
+  await wait(900);
+  check("a run that stops short does nothing", !(await visible("#power-off")) && !(await plate()).shown);
+
+  // Off a Pi the server refuses, and the set says why and stays on.
+  await tap(10);
+  check("ten presses ask the server; a machine that cannot be powered says so and stays on", await until(async () => {
+    const p = await plate();
+    return p.big === "STILL ON" && p.small === "CANNOT SHUT DOWN FROM HERE";
+  }, 5000), JSON.stringify(await plate()));
+  check("and the picture is still there", !(await visible("#power-off")));
+  await wait(700);
+  // The browser writes a refused request to its console. That one line is
+  // the drill's own doing, so it is taken off the list of page errors.
+  const refused = pageErrors.findIndex((e) => /403/.test(e));
+  check("the refusal is the only thing the display complained about", refused >= 0 && pageErrors.length === 1, JSON.stringify(pageErrors));
+  if (refused >= 0) pageErrors.splice(refused, 1);
+
+  // A machine that can: the answer is played by the drill, so nothing here
+  // is switched off. The request is the control room's own.
+  const asked = [];
+  await page.route("**/api/system", (route) => {
+    const rq = route.request();
+    asked.push({ method: rq.method(), header: rq.headers()["x-cable82-config"], body: rq.postData() });
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, cmd: "shutdown" }) });
+  });
+  await tap(10);
+  check("ten presses send the shutdown the control room sends", (await until(() => asked.length === 1, 5000)) && asked[0].method === "POST" && asked[0].header === "1" && JSON.parse(asked[0].body).cmd === "shutdown", JSON.stringify(asked));
+  check("the picture goes out", await until(() => visible("#power-off"), 3000));
+  check("and the dark screen says SHUTTING DOWN", await until(async () => {
+    const p = await plate();
+    return p.big === "SHUTTING DOWN" && p.shown && p.on === "power-off";
+  }, 4000), JSON.stringify(await plate()));
+  const plateBox = await page.evaluate(() => {
+    const b = document.getElementById("channel-bug").getBoundingClientRect();
+    return { w: b.width, h: b.height, mid: (b.left + b.right) / 2, font: parseFloat(getComputedStyle(document.getElementById("bug-number")).fontSize) };
+  });
+  check("the plate on the dark screen is drawn at the size it has on the picture", Math.abs(plateBox.font - 56) < 1 && Math.abs(plateBox.mid - 320) < 2 && plateBox.w > 200 && plateBox.w < 600, JSON.stringify(plateBox));
+  await tap(12);
+  await wait(300);
+  check("it is asked once, however long the button is mashed", asked.length === 1, "asked=" + asked.length);
+  await page.unroute("**/api/system");
+
+  // Put the set back the way the rest of the drill expects it: a reload
+  // comes up dark (the set remembers), and two presses switch it on.
+  await page.reload();
+  check("the set remembers it was off across a reload", await until(() => visible("#power-off"), 5000));
+  await page.evaluate(() => window.__plug());
+  await tap(2);
+  check("two presses switch it back on, on the guide", await until(async () => !(await visible("#power-off")) && (await visible("#guide-layer")), 5000));
+  await wait(300);
+  await nudge(1, 0);
+  check("and it remembers the sound level too", await until(async () => (await cells()) === held + 1, 3000), "cells=" + (await cells()) + " held=" + held);
+  await wait(300);
+
   // A control-room save reloads the set by itself.
   await page.evaluate(() => { window.__drill = "before"; });
   const cfgNow = await (await fetch(base + "/api/config")).json();
@@ -236,6 +362,8 @@ try {
   check("the vitals panel fills in", await until(async () => (await room.locator("#vitals .vital").count()) >= 4, 5000));
   check("the power panel stays hidden off a Pi", await room.evaluate(() => document.getElementById("p-power").hidden));
   check("the room names the channel", (await room.inputValue("#f-channelName")) === "E2E 83");
+  check("the room shows ten presses to shut down", (await room.inputValue("#f-tunerShutdown")) === "10");
+  await room.fill("#f-tunerShutdown", "7");
   await room.fill("#f-tagline", "SAVED FROM THE ROOM");
   check("the faux CRT panel shows the sliders with their numbers", await room.evaluate(() => document.getElementById("f-fauxCurve").value === "3" && document.getElementById("o-fauxCurve").value === "3" && !document.getElementById("f-fauxOn").checked));
   await room.evaluate(() => { const s = document.getElementById("f-fauxCurve"); s.value = "6"; s.dispatchEvent(new Event("input", { bubbles: true })); });
@@ -245,6 +373,7 @@ try {
   const savedCfg = JSON.parse(fs.readFileSync(configPath, "utf8"));
   check("the save landed in config.json", savedCfg.tagline === "SAVED FROM THE ROOM");
   check("the faux CRT sliders round-trip through the room", savedCfg.fauxCrt && savedCfg.fauxCrt.curve === 6 && savedCfg.fauxCrt.on === false, JSON.stringify(savedCfg.fauxCrt));
+  check("and so do the presses to shut down", savedCfg.tuner.shutdownPresses === 7, JSON.stringify(savedCfg.tuner));
   await room.close();
 
   // The remote.

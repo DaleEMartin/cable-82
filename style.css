@@ -456,6 +456,14 @@ html, body { height: 100%; background: var(--letterbox); }
   display: flex;
   align-items: center;
   justify-content: center;
+  /* The on-screen display is drawn here while the set is off, so the dark
+     screen measures itself the way the stage does, a 640x480 picture, and
+     writes in the stage's white (tuner.js hands it over). */
+  container-type: size;
+  --u: calc(min(100cqw, 100cqh * 4 / 3) / 640);
+  font-family: "VGA", monospace;
+  text-transform: uppercase;
+  color: var(--c-white);
 }
 #power-off[hidden] { display: none; }
 
@@ -528,6 +536,10 @@ html, body { height: 100%; background: var(--letterbox); }
   top: 27%;
   transform: translate(-50%, -50%);
   z-index: 60;
+  /* As wide as what it says, on one line: a plate that wrapped would cover
+     twice the picture. */
+  width: max-content;
+  max-width: 100%;
   min-width: calc(var(--u) * 210);
   padding: calc(var(--u) * 14) calc(var(--u) * 30) calc(var(--u) * 12);
   background: rgba(10, 10, 18, 0.84);
@@ -539,7 +551,7 @@ html, body { height: 100%; background: var(--letterbox); }
 }
 #channel-bug[hidden] { display: none; }
 #channel-bug.fading { opacity: 0; }
-#bug-number { font-size: calc(var(--u) * 56); line-height: 1; }
+#bug-number { font-size: calc(var(--u) * 56); line-height: 1; white-space: nowrap; }
 #bug-name { font-size: calc(var(--u) * 18); margin-top: calc(var(--u) * 8); white-space: nowrap; }
 #bug-name[hidden] { display: none; }
 /* The volume meter: eight cells, filled from the left as the key steps up,

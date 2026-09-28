@@ -878,6 +878,20 @@ test("GET /api/config synthesizes the out-of-the-box dial for a legacy config", 
   assert.ok(j.config.preview.tagline.length > 0);
   assert.equal(j.config.tuner.wrap, true);
   assert.equal(j.config.tuner.cut, "static");
+  assert.equal(j.config.tuner.shutdownPresses, 10);
+});
+
+test("schema holds the presses that shut the machine down between 5 and 20, and 0 is off", () => {
+  const { validateConfig } = require("../config-schema.js");
+  const presses = (v) => validateConfig({ tuner: { shutdownPresses: v } }).cfg.tuner.shutdownPresses;
+  assert.equal(validateConfig({}).cfg.tuner.shutdownPresses, 10);
+  assert.equal(presses(0), 0);
+  assert.equal(presses(false), 0);
+  assert.equal(presses(2), 5, "never so few that a double press could be mistaken for it");
+  assert.equal(presses(7), 7);
+  assert.equal(presses(99), 20);
+  assert.equal(presses("many"), 10);
+  assert.equal(presses(null), 10);
 });
 
 test("schema fills, clamps, and guards the faux CRT block", () => {
@@ -1094,7 +1108,14 @@ test("the remote's volume and power keys ride the same bus", async () => {
 test("POST /api/tune validates commands", async () => {
   const bad = await fetch(base + "/api/tune", { method: "POST", body: JSON.stringify({ cmd: "explode" }) });
   assert.equal(bad.status, 400);
-  assert.match(await bad.text(), /up, down, set, volume, OR power/);
+  assert.match(await bad.text(), /up, down, set, volume, volumeUp, volumeDown, OR power/);
+  // the two directions of a stick are commands like any other
+  for (const cmd of ["volumeUp", "volumeDown"]) {
+    const r = await fetch(base + "/api/tune", { method: "POST", body: JSON.stringify({ cmd }) });
+    assert.equal(r.status, 200);
+    assert.equal((await r.json()).ok, true);
+  }
+  assert.equal((await (await fetch(base + "/api/tune")).json()).last.cmd, "volumeDown");
   const noChannel = await fetch(base + "/api/tune", { method: "POST", body: JSON.stringify({ cmd: "set" }) });
   assert.equal(noChannel.status, 400);
 });

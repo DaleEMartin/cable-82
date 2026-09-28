@@ -589,6 +589,7 @@
     $("f-tunerWrap").checked = tuner.wrap !== false;
     $("f-tunerCut").value = tuner.cut || "static";
     $("f-tunerPower").value = tuner.power || "crt";
+    $("f-tunerShutdown").value = tuner.shutdownPresses == null ? 10 : tuner.shutdownPresses;
 
     renderFeeds();
     renderRotation();
@@ -842,6 +843,7 @@
         wrap: $("f-tunerWrap").checked,
         cut: $("f-tunerCut").value,
         power: $("f-tunerPower").value,
+        shutdownPresses: numVal("f-tunerShutdown"),
       },
       feeds: feeds.map((f) => ({ id: f.id, label: f.label, url: f.url })),
       rotation: rotation.map((s) => (s.type === "headlines" ? { type: "headlines", feed: s.feed } : { type: s.type })),

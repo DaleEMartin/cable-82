@@ -23,6 +23,7 @@ Send one command.
 | `{"cmd":"down"}` | The next channel down |
 | `{"cmd":"set","channel":N}` | Straight to channel `N`, 0 to 999. A number that is not on the dial shows NO SUCH CHANNEL and stays put |
 | `{"cmd":"volume"}` | One step around the volume cycle: loud, sound off, soft, medium, loud. The set draws the level as a meter |
+| `{"cmd":"volumeUp"}`, `{"cmd":"volumeDown"}` | One cell of the meter louder or softer, eight cells from sound off to loud. Stops at the ends |
 | `{"cmd":"power"}` | Toggle the picture off and on. Every other key is dead while it is off; the broadcast clock keeps running |
 
 Answers `{"ok":true,"seq":N,"listeners":N}`.

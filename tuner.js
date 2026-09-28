@@ -10,7 +10,7 @@
   "use strict";
 
   const Dial = window.Cable82Dial;
-  const { formatClock, airState, nextChannelIndex, VOLUME_STEPS, nextVolumeStep } = Dial;
+  const { formatClock, airState, nextChannelIndex, VOLUME_STEPS, nextVolumeLevel, stepVolumeLevel, PRESS_GAP_MS, countPress, runMeaning } = Dial;
 
   // What covers the swap, and for how long: ms of cover before the swap,
   // then ms after it so the new channel has its first frame up.
@@ -55,13 +55,18 @@
       crtLine: document.getElementById("crt-line"),
     };
 
-    // The set's own state: the volume key's step and whether the picture
-    // is on. Both survive a page reload (a config save, the daily reload)
-    // and reset when the box is power-cycled, like a TV with a memory.
-    let volumeStep = Number(sessionStorage.getItem("cable82.tuner.volume"));
-    if (!Number.isInteger(volumeStep) || volumeStep < 0 || volumeStep >= VOLUME_STEPS.length) volumeStep = 0;
+    // The set's own state: the sound level and whether the picture is on.
+    // Both survive a page reload (a config save, the daily reload) and
+    // reset when the box is power-cycled, like a TV with a memory.
+    // (A set that reloads into this build still remembers the step the old
+    // volume key left it on.)
+    let level = 1;
+    const storedLevel = sessionStorage.getItem("cable82.tuner.level");
+    const storedStep = sessionStorage.getItem("cable82.tuner.volume");
+    if (storedLevel !== null && Number.isFinite(Number(storedLevel))) level = Math.min(1, Math.max(0, Number(storedLevel)));
+    else if (storedStep !== null && VOLUME_STEPS[Number(storedStep)]) level = VOLUME_STEPS[Number(storedStep)].level;
     let powered = sessionStorage.getItem("cable82.tuner.power") !== "off";
-    const soundLevel = () => VOLUME_STEPS[volumeStep].level;
+    const soundLevel = () => level;
 
     // ---------------- the board (channel 82, and the chrome)
     // It is created once and covered while another channel shows. It boots
@@ -117,6 +122,14 @@
     const METER_CELLS = 8;
     for (let i = 0; i < METER_CELLS; i++) L.bugMeter.appendChild(document.createElement("i"));
     function notice({ big, small, meter }) {
+      // Switched off, the plate is drawn on the dark screen: the stage is
+      // underneath it and nothing on the stage can be seen. The dark screen
+      // borrows the stage's white to write in.
+      const host = powered ? stage : L.power;
+      if (L.bug.parentNode !== host) {
+        if (host === L.power) L.power.style.setProperty("--c-white", getComputedStyle(stage).getPropertyValue("--c-white"));
+        host.appendChild(L.bug);
+      }
       L.bugNumber.textContent = big || "";
       L.bugName.textContent = small || "";
       L.bugName.hidden = !small;
@@ -303,9 +316,10 @@
       else notice({ big: "CH " + n, small: "NO SUCH CHANNEL" });
     }
 
-    // ---------------- the volume key
-    // One step around VOLUME_STEPS, applied to whatever is making sound
-    // (the program on the air, the board's music bed).
+    // ---------------- the volume keys
+    // The level applies to whatever is making sound (the program on the
+    // air, the board's music bed). The volume key walks the Zenith ring;
+    // louder and softer move one cell of the meter and stop at the ends.
     function applySound() {
       video.applySound();
       board.setSoundLevel(soundLevel());
@@ -313,13 +327,15 @@
     // The level is drawn, not written: a row of cells that fill as the key
     // steps up, empty at sound off. Words the size of a channel name could
     // not be read across a room; eight boxes can.
-    function volumeKey() {
+    function setLevel(next) {
       if (!powered) return;
-      volumeStep = nextVolumeStep(volumeStep);
-      try { sessionStorage.setItem("cable82.tuner.volume", String(volumeStep)); } catch (e) { /* fine */ }
+      level = next;
+      try { sessionStorage.setItem("cable82.tuner.level", String(level)); } catch (e) { /* fine */ }
       applySound();
-      notice({ big: "VOLUME", meter: VOLUME_STEPS[volumeStep].level });
+      notice({ big: "VOLUME", meter: level });
     }
+    const volumeKey = () => setLevel(nextVolumeLevel(level));
+    const volumeStep = (dir) => setLevel(stepVolumeLevel(level, dir));
 
     // ---------------- the power key
     // Off is a dark screen and silence: the channel's view is stopped (the
@@ -402,14 +418,53 @@
       try { sessionStorage.setItem("cable82.tuner.power", powered ? "on" : "off"); } catch (e) { /* fine */ }
     }
 
+    // ---------------- switching the machine off
+    // The long run of presses on a gamepad button. It asks the server, the
+    // same request the control room's Shut down button makes, and the
+    // server flushes the disks and hands over to systemd. The picture goes
+    // out the way the power key puts it out, and the dark screen says what
+    // is happening for as long as there is a browser to say it. A machine
+    // that cannot be powered from the station answers 403, and the set says
+    // it is still on.
+    let shuttingDown = false;
+    async function shutdownMachine() {
+      if (shuttingDown) return;
+      shuttingDown = true;
+      notice({ big: "SHUTTING DOWN" });
+      let refusal = "";
+      try {
+        const r = await fetch("api/system", {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-cable82-config": "1" },
+          body: JSON.stringify({ cmd: "shutdown" }),
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!r.ok) refusal = r.status === 403 ? "CANNOT SHUT DOWN FROM HERE" : "THE SERVER ANSWERED " + r.status;
+      } catch (e) {
+        refusal = "CANNOT REACH THE SERVER";
+      }
+      if (refusal) {
+        shuttingDown = false;
+        notice({ big: "STILL ON", small: refusal });
+        return;
+      }
+      if (powered && !powerBusy) {
+        powerKey();
+        setTimeout(() => notice({ big: "SHUTTING DOWN" }), POWER_FX.collapse + POWER_FX.snap + POWER_FX.fade + 100);
+      }
+    }
+
     // ---------------- one entry for every source
-    // The four keys of a 1960s remote plus a direct dial. The keyboard and
-    // the gamepad below call it; app.js calls it for the bus.
+    // The four keys of a 1960s remote, a direct dial, and the two ways a
+    // stick moves the sound. The keyboard and the gamepad below call it;
+    // app.js calls it for the bus.
     function command(cmd, channel) {
       if (cmd === "up") step(+1);
       else if (cmd === "down") step(-1);
       else if (cmd === "set") setNumber(channel);
       else if (cmd === "volume") volumeKey();
+      else if (cmd === "volumeUp") volumeStep(+1);
+      else if (cmd === "volumeDown") volumeStep(-1);
       else if (cmd === "power") powerKey();
     }
 
@@ -443,35 +498,89 @@
     }
 
     if (cfg.tuner.sources.gamepad && navigator.getGamepads) {
-      // D-pad up/down steps the dial; Select jumps home to the board.
+      // Up and down step the dial, left and right move the sound (held, it
+      // keeps moving), Select jumps home to the board. Every other button
+      // is counted: two presses in a row are the power key, and a long run
+      // switches the machine off (tuner.shutdownPresses). The d-pad and the
+      // stick are read alike, so a one-button joystick and a NES pad both
+      // work. A diagonal is no direction: a stick leaning into a corner
+      // must not change the channel while it changes the sound.
       // The Gamepad API only reports after a button press, which is itself
       // the gesture, and the browser announces it with gamepadconnected.
       // Polling starts then and stops when the last pad leaves, so a set
-      // with no controller never spends a frame asking. 20 Hz is plenty
-      // for a d-pad; a 60 Hz rAF loop was a tax on a Pi decoding video.
+      // with no controller never spends a frame asking. 30 Hz catches every
+      // press of a run; a 60 Hz rAF loop was a tax on a Pi decoding video.
       // Edge state is per pad: a second idle pad sharing one state object
       // would clear it every frame and turn a held button into a repeat.
+      const REPEAT = { after: 450, every: 160 };
+      const counted = (i) => i !== 8 && (i < 12 || i > 15);
       const was = {};
       let poll = null;
+      let run = null;
+      let runTimer = null;
       const homeIndex = () => {
         const i = dial.findIndex((c) => c.type === "bulletin");
         return i >= 0 ? i : 0;
       };
+      const endRun = () => {
+        const count = run ? run.count : 0;
+        run = null;
+        if (runMeaning(count, 0) === "power") powerKey();
+        else if (count >= 3) L.bug.classList.add("fading"); // a run that stopped short
+      };
+      const press = (button) => {
+        if (shuttingDown) return;
+        const presses = cfg.tuner.shutdownPresses;
+        run = countPress(run, button, performance.now());
+        clearTimeout(runTimer);
+        if (runMeaning(run.count, presses) === "shutdown") {
+          run = null;
+          shutdownMachine();
+          return;
+        }
+        if (presses > 0 && run.count >= 3) notice({ big: "SHUT DOWN", small: run.count + " OF " + presses, meter: run.count / presses });
+        runTimer = setTimeout(endRun, PRESS_GAP_MS);
+      };
       const anyPad = () => Array.from(navigator.getGamepads()).some(Boolean);
       const pollPads = () => {
+        const now = performance.now();
         for (const p of navigator.getGamepads()) {
           if (!p) continue;
-          const w = was[p.index] || (was[p.index] = { up: false, dn: false, sel: false });
-          const up = (p.buttons[12] && p.buttons[12].pressed) || p.axes[1] < -0.5;
-          const dn = (p.buttons[13] && p.buttons[13].pressed) || p.axes[1] > 0.5;
-          const sel = !!(p.buttons[8] && p.buttons[8].pressed);
-          if (up && !w.up) step(+1);
-          if (dn && !w.dn) step(-1);
+          const w = was[p.index] || (was[p.index] = { up: false, dn: false, lf: false, rt: false, sel: false, next: Infinity, btn: [] });
+          const down = (i) => !!(p.buttons[i] && p.buttons[i].pressed);
+          const up = down(12) || p.axes[1] < -0.5;
+          const dn = down(13) || p.axes[1] > 0.5;
+          const lf = down(14) || p.axes[0] < -0.5;
+          const rt = down(15) || p.axes[0] > 0.5;
+          if ((up || dn) && (lf || rt)) {
+            // Spent until the stick has been back to the middle.
+            w.up = w.dn = w.lf = w.rt = true;
+            w.next = Infinity;
+          } else {
+            if (up && !w.up) step(+1);
+            if (dn && !w.dn) step(-1);
+            const dir = rt ? +1 : lf ? -1 : 0;
+            if (dir && !(dir > 0 ? w.rt : w.lf)) {
+              volumeStep(dir);
+              w.next = now + REPEAT.after;
+            } else if (dir && now >= w.next) {
+              volumeStep(dir);
+              w.next = now + REPEAT.every;
+            }
+            w.up = up; w.dn = dn; w.lf = lf; w.rt = rt;
+          }
+          const sel = down(8);
           if (sel && !w.sel) tuneToIndex(homeIndex());
-          w.up = up; w.dn = dn; w.sel = sel;
+          w.sel = sel;
+          for (let i = 0; i < p.buttons.length; i++) {
+            if (!counted(i)) continue;
+            const d = down(i);
+            if (d && !w.btn[i]) press(p.index + ":" + i);
+            w.btn[i] = d;
+          }
         }
       };
-      const startPolling = () => { if (!poll) poll = setInterval(pollPads, 50); };
+      const startPolling = () => { if (!poll) poll = setInterval(pollPads, 33); };
       const stopPolling = () => { if (poll && !anyPad()) { clearInterval(poll); poll = null; } };
       window.addEventListener("gamepadconnected", startPolling);
       window.addEventListener("gamepaddisconnected", stopPolling);

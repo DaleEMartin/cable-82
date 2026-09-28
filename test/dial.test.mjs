@@ -101,6 +101,54 @@ test("the dial wraps or clamps, and the volume key walks the Zenith order", () =
   assert.equal(D.nextVolumeStep(NaN), 1, "a bad step is loud, and steps to off");
 });
 
+test("the volume key walks the Zenith ring from any level, and a stick moves one cell and stops at the ends", () => {
+  // The ring, from the levels the key itself leaves behind.
+  let l = 1;
+  const ring = [];
+  for (let n = 0; n < 5; n++) { l = D.nextVolumeLevel(l); ring.push(l); }
+  assert.deepEqual(ring, [0, 0.35, 0.7, 1, 0]);
+  // From a level only a stick can leave: up to the next step of the ring.
+  assert.equal(D.nextVolumeLevel(0.5), 0.7);
+  assert.equal(D.nextVolumeLevel(0.875), 1);
+  assert.equal(D.nextVolumeLevel(NaN), 0, "a bad level is loud, and steps to off");
+  // One cell of eight at a time.
+  assert.equal(D.VOLUME_CELLS, 8);
+  assert.equal(D.stepVolumeLevel(1, -1), 0.875);
+  assert.equal(D.stepVolumeLevel(1, +1), 1, "loud is the top");
+  assert.equal(D.stepVolumeLevel(0, -1), 0, "sound off is the bottom");
+  assert.equal(D.stepVolumeLevel(0, +1), 0.125);
+  // From the ring's own levels it lands on the cell next to the one drawn:
+  // soft is drawn as three cells, so louder is four and softer is two.
+  assert.equal(D.stepVolumeLevel(0.35, +1), 0.5);
+  assert.equal(D.stepVolumeLevel(0.35, -1), 0.25);
+  let walk = 0;
+  for (let n = 0; n < 12; n++) walk = D.stepVolumeLevel(walk, +1);
+  assert.equal(walk, 1);
+});
+
+test("presses of one button in a row are counted, and the count is the meaning", () => {
+  const gap = D.PRESS_GAP_MS;
+  let run = D.countPress(null, "0:0", 1000);
+  assert.deepEqual(run, { button: "0:0", count: 1, at: 1000 });
+  run = D.countPress(run, "0:0", 1000 + gap);
+  assert.equal(run.count, 2, "a press at the edge of the gap still belongs");
+  run = D.countPress(run, "0:0", run.at + gap + 1);
+  assert.equal(run.count, 1, "a press after the gap starts over");
+  run = D.countPress(run, "0:1", run.at + 10);
+  assert.equal(run.count, 1, "another button starts over");
+  for (let n = 0; n < 9; n++) run = D.countPress(run, "0:1", run.at + 120);
+  assert.equal(run.count, 10);
+
+  assert.equal(D.runMeaning(1, 10), null);
+  assert.equal(D.runMeaning(2, 10), "power");
+  for (let n = 3; n < 10; n++) assert.equal(D.runMeaning(n, 10), null, n + " presses mean nothing");
+  assert.equal(D.runMeaning(10, 10), "shutdown");
+  assert.equal(D.runMeaning(11, 10), "shutdown");
+  assert.equal(D.runMeaning(10, 0), null, "0 turns the long run off");
+  assert.equal(D.runMeaning(2, 0), "power");
+  assert.equal(D.runMeaning(5, 5), "shutdown");
+});
+
 test("the guide reads the same clock as the player and merges a long program across slots", () => {
   assert.equal(D.programTitle("02 Design for Dreaming (1956).mp4"), "DESIGN FOR DREAMING (1956)");
   assert.equal(D.programTitle("S01.E13 Duck and Cover.mkv"), "DUCK AND COVER");

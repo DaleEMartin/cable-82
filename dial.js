@@ -208,6 +208,40 @@
     return (Number.isInteger(i) && i >= 0 && i < VOLUME_STEPS.length ? i + 1 : 1) % VOLUME_STEPS.length;
   }
 
+  // The set holds its sound as a level, 0 to 1, because two kinds of key
+  // move it. The volume key walks the Zenith ring from wherever the level
+  // is: up to the next of its steps, and from loud around to sound off. A
+  // stick pushed left or right moves one cell of the on-screen meter at a
+  // time and stops at the ends.
+  const VOLUME_CELLS = 8;
+  const clampLevel = (l) => (Number.isFinite(l) ? Math.min(1, Math.max(0, l)) : 1);
+  function nextVolumeLevel(level) {
+    const l = clampLevel(level);
+    const above = VOLUME_STEPS.map((s) => s.level).filter((s) => s > l + 1e-9).sort((a, b) => a - b);
+    return above.length ? above[0] : 0;
+  }
+  function stepVolumeLevel(level, dir) {
+    const cell = Math.round(clampLevel(level) * VOLUME_CELLS) + (dir < 0 ? -1 : 1);
+    return Math.min(VOLUME_CELLS, Math.max(0, cell)) / VOLUME_CELLS;
+  }
+
+  // A button pressed more than once. Presses of the same button that follow
+  // each other within PRESS_GAP_MS are one run, and the count of a run is
+  // what it means: two is the power key. A long run switches the machine
+  // off, the moment the count is reached (shutdownPresses, 0 for never).
+  // Every other count means nothing, so a single press and a miscount do no
+  // harm.
+  const PRESS_GAP_MS = 500;
+  function countPress(run, button, nowMs) {
+    const same = run && run.button === button && nowMs - run.at <= PRESS_GAP_MS;
+    return { button, count: same ? run.count + 1 : 1, at: nowMs };
+  }
+  function runMeaning(count, shutdownPresses) {
+    if (shutdownPresses > 0 && count >= shutdownPresses) return "shutdown";
+    if (count === 2) return "power";
+    return null;
+  }
+
   // ---------------------------------------------------------- the guide
 
   // A program's on-screen name, from its filename. Strips the extension, a
@@ -302,6 +336,12 @@
     nextChannelIndex,
     VOLUME_STEPS,
     nextVolumeStep,
+    VOLUME_CELLS,
+    nextVolumeLevel,
+    stepVolumeLevel,
+    PRESS_GAP_MS,
+    countPress,
+    runMeaning,
     programTitle,
     segmentName,
     guideSlots,
