@@ -85,12 +85,18 @@ One answer for two readers.
 `folders` is the picker's inventory: every channel folder on every drive, with `files` (count), `seconds` (the running time of the files whose durations are known), `probed` (how many are), and `volume` (the drive it sits on, empty for the built-in folder).
 
 `channels` is the display's: every configured video channel with its `files` in airing order, each with `file`, `url`, and `duration` (null until the display has played it once), plus `title` when the channel is set to show the titles inside its files, and `breaks` (the spots folder and its files) for a channel with commercial breaks.
+Once every file in a folder has a duration, its list is frozen for the day: the same files and lengths until midnight, kept in `lineups.json` beside the config so a restart changes nothing. Displays shuffle the list by date and wrap the clock around its total, so a list that changed mid-day would reshuffle the channel. New files join tomorrow; a file that disappears keeps its slot until then. A folder with an unmeasured file stays live, so the display can play and measure it. Hidden files are never listed.
 
 ### `POST /api/channels/durations`
 
 Internal: the display reporting a file's length after playing it, `{"folder":"…","durations":{"file.mp4":123.4}}`, so the server's `.durations.json` cache fills itself.
 Needs the same `x-cable82-config: 1` header a save does.
 Only files that exist in the folder are recorded.
+
+### `POST /api/channels/refresh`
+
+`{"folder":"…"}` freezes that folder's lineup again from what is in it now, for a job that changed it on purpose (a morning refresh of new recordings). The jump happens once, when you choose, instead of whenever a file lands.
+Needs the same `x-cable82-config: 1` header a save does.
 
 ### Video files
 

@@ -2,6 +2,10 @@
 # not committed. Edit it freely; your channel's settings stay local.
 config.json
 
+# The day's frozen channel lineups (server.js frozenFiles), rewritten daily.
+lineups.json
+lineups.json.tmp
+
 # Dependencies and build output (there are none by default; cable-82 is
 # dependency-free, but keep these out if you add tooling).
 node_modules/

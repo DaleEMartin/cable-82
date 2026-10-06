@@ -36,7 +36,7 @@ A `video` channel adds:
 | Key | What it does | Default |
 | --- | --- | --- |
 | `folder` | One folder name (no path) under `channels/` on the card, or under a `channels` folder on any drive. If the same name exists in two places, the built-in one wins | required |
-| `order` | `sequence` (file names, naturally sorted, so E2 airs before E10) or `shuffle-daily` (a fresh order each day, stable all day) | `sequence` |
+| `order` | `sequence` (file names, naturally sorted, so E2 airs before E10) or `shuffle-daily` (a fresh order each day, stable all day). Either way the files are fixed for the day once all are measured: new ones join tomorrow (see `POST /api/channels/refresh`) | `sequence` |
 | `mode` | `continuous` (always on the air) or `schedule` | `continuous` |
 | `schedule` | Windows `{ "days": ["sat","sun"], "start": "08:00", "end": "11:30" }`. An end at or before the start runs overnight into the next morning | `[]` |
 | `offAir` | What shows outside the windows: `testcard`, `bars`, `snow`, or `bulletin` (fall back to the board) | `testcard` |

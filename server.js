@@ -331,9 +331,15 @@ function createApp(opts = {}) {
       geocodeApiBase: "https://geocoding-api.open-meteo.com/v1/search",
       // CheerLights (cheerlights.com): the latest global color, one JSON fetch.
       cheerlightsApiBase: "https://api.thingspeak.com/channels/1417/feeds/last.json",
+      // Where the day's frozen lineups are kept (see frozenFiles); beside the
+      // config unless a test says otherwise.
+      lineupPath: null,
+      // The clock the lineups go by. Overridable so a test can cross midnight.
+      now: () => new Date(),
     },
     opts
   );
+  if (!o.lineupPath) o.lineupPath = path.join(path.dirname(o.configPath), "lineups.json");
 
   // Seed config.json from the schema defaults on a fresh clone so the
   // channel and the control room both have something to read.
@@ -735,7 +741,8 @@ function createApp(opts = {}) {
     const durations = readDurations(dir);
     let names = [];
     try {
-      names = fs.readdirSync(dir).filter((f) => VIDEO_RE.test(f)).sort(naturalCompare);
+      // Hidden files are never served (a moved-aside copy, a converter's temp file), so never listed either.
+      names = fs.readdirSync(dir).filter((f) => VIDEO_RE.test(f) && !f.startsWith(".")).sort(naturalCompare);
     } catch (e) {
       return null;
     }
@@ -755,6 +762,91 @@ function createApp(opts = {}) {
   function listChannelFiles(folder, withTitles) {
     const found = resolveFolder(folder);
     return found ? listFiles(folder, found.dir, withTitles) : null; // null: missing on every root
+  }
+
+  // ---------------------------------------------------------- the day's lineup
+
+  // A channel's playlist is frozen for the day the first time it is asked
+  // for: the same files with the same lengths until midnight. Displays build
+  // the running order from this list (a shuffle seeded by the date, a clock
+  // wrapped around the total), so a folder that changed mid-day used to
+  // reshuffle every channel airing it: one file moved aside, and a different
+  // movie was on halfway through the one being watched. Now new files join
+  // tomorrow, and a file that disappears keeps its slot (and fails to play)
+  // until then. Only a fully measured folder is frozen: the clock needs every
+  // length, and a display learns a length by playing the file, so a folder
+  // with an unmeasured file stays live (as it always was) until the last one
+  // is measured. Kept on disk, so a restart mid-day changes nothing.
+  // POST /api/channels/refresh re-freezes a folder on purpose.
+  let lineups = null; // { day, folders: { folder: [entry] } }
+
+  // The same day key dial.js seeds its shuffle with.
+  function dayKey(d) {
+    return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  }
+
+  function todaysLineups() {
+    const day = dayKey(o.now());
+    if (lineups && lineups.day === day) return lineups;
+    try {
+      const raw = JSON.parse(fs.readFileSync(o.lineupPath, "utf8"));
+      if (raw && raw.day === day && raw.folders && typeof raw.folders === "object") return (lineups = raw);
+    } catch (e) {
+      /* none yet, or yesterday's: start the day fresh */
+    }
+    return (lineups = { day, folders: {} });
+  }
+
+  function saveLineups() {
+    const tmp = o.lineupPath + ".tmp";
+    try {
+      fs.writeFileSync(tmp, JSON.stringify(lineups) + "\n");
+      fs.renameSync(tmp, o.lineupPath);
+    } catch (e) {
+      /* a read-only card: the lineup still holds until a restart */
+    }
+  }
+
+  function frozenFiles(folder, withTitles) {
+    const live = listChannelFiles(folder, withTitles);
+    const today = todaysLineups();
+    let frozen = today.folders[folder];
+    if (!frozen) {
+      if (!live || !live.length || live.some((f) => f.duration == null)) return live; // still being measured: live
+      frozen = today.folders[folder] = live.map((f) => ({ file: f.file, url: f.url, duration: f.duration }));
+      saveLineups();
+    }
+    // Titles are read lazily and the channel's titles setting can change, so
+    // they come from the live listing; the lineup itself never does.
+    const titles = new Map((live || []).map((f) => [f.file, f.title]));
+    return frozen.map((f) => (withTitles ? Object.assign({}, f, { title: titles.get(f.file) ?? null }) : Object.assign({}, f)));
+  }
+
+  // POST /api/channels/refresh {folder} - freeze a folder's lineup again from
+  // what is in it now, for a job that just changed it on purpose (the early
+  // morning refresh of LATE NIGHT). Guarded like a config write.
+  function handleRefresh(req, res) {
+    if (req.method !== "POST") return send405(res, "POST");
+    if (req.headers["x-cable82-config"] !== "1") return send(res, 403, "MISSING CONFIG HEADER");
+    readBody(req, 16 * 1024)
+      .then((body) => {
+        let raw;
+        try {
+          raw = JSON.parse(body);
+        } catch (e) {
+          return send(res, 400, "INVALID JSON");
+        }
+        const folder = raw && raw.folder;
+        if (!safeFolder(folder)) return send(res, 400, "BAD FOLDER");
+        if (!resolveFolder(folder)) return send(res, 404, "UNKNOWN FOLDER");
+        const today = todaysLineups();
+        const had = folder in today.folders;
+        delete today.folders[folder];
+        if (had) saveLineups();
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify({ ok: true, refreshed: had }));
+      })
+      .catch(() => send(res, 413, "BODY TOO LARGE"));
   }
 
   // GET /api/channels: every folder under channels/ (for the control room's
@@ -795,10 +887,10 @@ function createApp(opts = {}) {
     const channels = [];
     for (const ch of (cfg && cfg.channels) || []) {
       if (ch.type !== "video") continue;
-      const entry = { number: ch.number, folder: ch.folder, files: listChannelFiles(ch.folder, ch.titles === "metadata") || [] };
+      const entry = { number: ch.number, folder: ch.folder, files: frozenFiles(ch.folder, ch.titles === "metadata") || [] };
       // A programmed channel carries its spots too: one fetch gives the
       // display everything the composite timeline is built from.
-      if (ch.breaks) entry.breaks = { folder: ch.breaks.folder, files: listChannelFiles(ch.breaks.folder) || [] };
+      if (ch.breaks) entry.breaks = { folder: ch.breaks.folder, files: frozenFiles(ch.breaks.folder) || [] };
       channels.push(entry);
     }
     res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
@@ -1217,6 +1309,10 @@ function createApp(opts = {}) {
       }
       if (pathname === "/api/channels/durations") {
         handleDurations(req, res);
+        return;
+      }
+      if (pathname === "/api/channels/refresh") {
+        handleRefresh(req, res);
         return;
       }
       if (pathname === "/api/tune") {

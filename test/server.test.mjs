@@ -1274,3 +1274,59 @@ test("GET /api/channels carries a programmed channel's spots with their cached d
   assert.ok(j.folders.some((f) => f.folder === "spots" && f.files === 2)); // the picker sees the spots folder too
   writeConfig(configFor(upstreamPort), 12);
 });
+
+test("a channel's lineup holds all day: new files wait for tomorrow, a vanished one keeps its slot", async () => {
+  // A folder that changes mid-day used to reshuffle the channel: displays
+  // shuffle the listing by date and wrap a clock around its total, so one
+  // file moved aside put a different movie on in the middle of another.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cable82-lineup-"));
+  const dir = path.join(root, "channels", "movies");
+  fs.mkdirSync(dir, { recursive: true });
+  for (const f of ["A.mp4", "B.mp4", "C.mp4"]) fs.writeFileSync(path.join(dir, f), "x");
+  fs.writeFileSync(path.join(dir, ".durations.json"), JSON.stringify({ "A.mp4": 100, "B.mp4": 200, "C.mp4": 300 }));
+  const cfgPath = path.join(root, "config.json");
+  fs.writeFileSync(cfgPath, JSON.stringify({ channels: [{ number: 60, type: "video", name: "MOVIES", folder: "movies", order: "shuffle-daily" }] }));
+  let clock = new Date(2026, 9, 5, 20, 0, 0);
+  const start = () => createApp({ configPath: cfgPath, channelsDir: path.join(root, "channels"), mediaScanDirs: [], now: () => clock });
+  const listing = async (a) => {
+    const j = await (await fetch("http://127.0.0.1:" + a.address().port + "/api/channels")).json();
+    return j.channels.find((c) => c.number === 60).files.map((f) => f.file + "=" + f.duration);
+  };
+  const refresh = (a, headers) =>
+    fetch("http://127.0.0.1:" + a.address().port + "/api/channels/refresh", {
+      method: "POST",
+      headers: Object.assign({ "content-type": "application/json" }, headers),
+      body: JSON.stringify({ folder: "movies" }),
+    });
+  let a = start();
+  await new Promise((r) => a.listen(0, "127.0.0.1", r));
+  try {
+    assert.deepEqual(await listing(a), ["A.mp4=100", "B.mp4=200", "C.mp4=300"]);
+    fs.renameSync(path.join(dir, "B.mp4"), path.join(dir, ".B.mp4")); // moved aside mid-day
+    fs.writeFileSync(path.join(dir, "D.mp4"), "x"); // and a new one lands, measured
+    fs.writeFileSync(path.join(dir, ".durations.json"), JSON.stringify({ "A.mp4": 100, "B.mp4": 200, "C.mp4": 300, "D.mp4": 400 }));
+    assert.deepEqual(await listing(a), ["A.mp4=100", "B.mp4=200", "C.mp4=300"], "the same lineup until midnight");
+
+    a.close(); // a restart mid-day changes nothing either
+    a = start();
+    await new Promise((r) => a.listen(0, "127.0.0.1", r));
+    assert.deepEqual(await listing(a), ["A.mp4=100", "B.mp4=200", "C.mp4=300"], "the lineup is kept on disk");
+
+    clock = new Date(2026, 9, 6, 0, 0, 5); // past midnight: the folder as it is now
+    assert.deepEqual(await listing(a), ["A.mp4=100", "C.mp4=300", "D.mp4=400"], "and a hidden file is never listed");
+
+    fs.rmSync(path.join(dir, "D.mp4")); // the morning job swaps a file
+    fs.writeFileSync(path.join(dir, "E.mp4"), "x");
+    assert.equal((await refresh(a, {})).status, 403, "refreshing is guarded like a config write");
+    const r = await refresh(a, { "x-cable82-config": "1" });
+    assert.deepEqual(await r.json(), { ok: true, refreshed: true });
+    assert.deepEqual(await listing(a), ["A.mp4=100", "C.mp4=300", "E.mp4=null"], "unmeasured: live, so a display can measure it");
+    fs.writeFileSync(path.join(dir, ".durations.json"), JSON.stringify({ "A.mp4": 100, "C.mp4": 300, "E.mp4": 500 }));
+    assert.deepEqual(await listing(a), ["A.mp4=100", "C.mp4=300", "E.mp4=500"], "measured: frozen from here");
+    fs.writeFileSync(path.join(dir, "F.mp4"), "x");
+    assert.deepEqual(await listing(a), ["A.mp4=100", "C.mp4=300", "E.mp4=500"], "and holds again");
+  } finally {
+    a.close();
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
